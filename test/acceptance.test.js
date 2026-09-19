@@ -1,0 +1,6 @@
+import test from "node:test";import assert from "node:assert/strict";import {executeGoldenPath,resolveVideoCapability} from "../src/domain.js";
+const input={projectName:"Demo ACS",productName:"Sample Bottle",productDescription:"A bottle supplied as the reference product.",productImages:["reference://image-1"],creativeInstruction:"Demonstrate the product naturally.",contentType:"UGC",language:"id"};
+test("golden path",async()=>{const r=await executeGoldenPath(input,{});assert.equal(r.storyboard.scenes.length,3);assert.equal(r.affiliatePackage.productDescription,input.productDescription);assert.notEqual(r.affiliatePackage.caption,input.creativeInstruction);});
+test("fallback honest",async()=>{const r=await executeGoldenPath(input,{});assert.equal(r.video.generationMode,"fallback");assert.equal(r.video.validationStatus,"not_live");});
+test("live adapter is validated, not assumed",async()=>{const r=await executeGoldenPath(input,{ACS_VIDEO_GENERATOR_URL:"http://127.0.0.1:1"});assert.equal(r.video.generationMode,"live");assert.notEqual(r.video.validationStatus,"passed");});
+test("resolver",()=>{assert.equal(resolveVideoCapability({}).mode,"fallback");assert.equal(resolveVideoCapability({ACS_VIDEO_GENERATOR_URL:"x"}).mode,"live");});
