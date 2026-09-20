@@ -32,7 +32,10 @@ A direct Higgsfield job created outside the ACS runtime does **not** close GAP-A
 - ACS-side provenance preservation: IMPLEMENTED.
 - Contract-level adapter test: PASS (synthetic endpoint only; not live evidence).
 - Real Higgsfield provider capability: VERIFIED AVAILABLE in the connected environment.
-- ACS→Higgsfield bridge endpoint: NOT CONFIGURED / NOT EXPOSED to the ACS runtime.
+- ACS→Higgsfield bridge endpoint: IMPLEMENTED in ACS as `POST /api/adapters/higgsfield` and backed by the official Higgsfield API.
+- Bridge requires server-side `HF_API_KEY_ID` + `HF_API_KEY_SECRET` and Genjutsu reference media; credentials are not stored in source.
+- Runtime configuration target: `ACS_VIDEO_GENERATOR_URL=https://<acs-host>/api/adapters/higgsfield`.
+- Real provider execution and artifact evidence are still pending until the runtime is deployed with valid API credentials and a real Genjutsu reference video/product image.
 - Therefore GAP-ACS-004 remains OPEN.
 
 ## Re-test interpretation
