@@ -41,6 +41,26 @@ The following are implementation choices and MUST remain behind the adapter boun
 }
 ```
 
+## Asynchronous execution extension
+
+An implementation may return HTTP `202` immediately so ACS does not hold a long provider request open. The accepted response preserves causal identity and exposes only an adapter-owned status URL:
+
+```json
+{
+  "contract": "acs-video-adapter-v1",
+  "capability": "real_ai_video_generation",
+  "status": "processing",
+  "provider": "<implementation provider>",
+  "providerJobId": "<real provider job id>",
+  "requestId": "<same ACS request id>",
+  "generationMode": "live",
+  "statusUrl": "<adapter-owned status URL>",
+  "provenance": {"liveEvidence": false}
+}
+```
+
+ACS polls the adapter-owned status URL with bounded retries. A terminal successful response must match the required live response above and include `status: "completed"`. A terminal failure must retain request/provider/job identity, set `status: "failed"`, return no artifact, and keep `liveEvidence: false`. Provider queue URLs, credentials, and schemas remain behind the adapter.
+
 ## Invariants
 1. `requestId` must correlate the ACS request to the adapter result.
 2. `generationMode=live` must not be asserted for mocks or synthetic artifacts.
@@ -49,6 +69,7 @@ The following are implementation choices and MUST remain behind the adapter boun
 5. An adapter may be implemented by Emergent, an external service, a native platform capability, or another runtime mechanism.
 6. ACS must remain executable when no live adapter is available by returning an explicit fallback state.
 7. A direct provider job outside ACS does not constitute ACS live-generation evidence.
+8. Long-running implementations must avoid holding a single ACS request open beyond infrastructure timeouts; accepted jobs must be resumable without resubmission.
 
 ## Evidence model
 

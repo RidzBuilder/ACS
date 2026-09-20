@@ -71,22 +71,22 @@ Branch: `execution/acs-mep-a-e-20260919`
 **STATUS:** PASS
 
 ## L. REAL VIDEO EXECUTION
-**ACTION:** Executed two genuine ACS-originated jobs without automatic resubmission.  
-**RESULT:** Attempt 1 created real provider job `01a0be44-38b8-7a62-a2c4-e08fd831d9bc`; terminal status was `COMPLETED` with provider error `Unexpected status code: 422`, so no artifact existed. Attempt 2 used the corrected text-to-video endpoint through ACS async job `2fa21f4e-9cc1-4c74-ab68-10e89097427f`; ACS request `0f40812b-b65f-46bc-a794-7662c5a74bd3` ended `adapter_unreachable` after the internal fetch deadline, with no artifact or complete provider provenance returned to Core. Live mode was then disabled.  
-**EVIDENCE:** Provider status response for attempt 1; `/app/.data/acs-live-job-status.json` for attempt 2; supervisor logs.  
-**STATUS:** OPEN PRODUCT GAP
+**ACTION:** Replaced the long-held adapter request with immediate `202` admission, durable provider-job storage, resumable backend polling, and short ACS status polling; then executed one approved two-second ACS job.  
+**RESULT:** ACS job `c2ac8f38-439a-47a3-836b-354b49cc9f4b` completed through ACS request `e90ec23a-b172-4225-a677-97cc581e2374`, storyboard `7b883de9-c23f-4bea-aeab-3e999fb5259c`, and real provider job `01a0be69-c850-7670-bc0d-4510c85cc94f`. The returned source was normalized to durable browser-compatible VP9/Opus WebM.  
+**EVIDENCE:** `/app/.data/video-adapter-jobs.json`, `/app/.data/acs-timeout-fix-status.json`, artifact `f28fb089-c1a1-4d1f-8d14-e9d74ebd0229.webm`.  
+**STATUS:** PASS
 
 ## M. VALIDATION
 **ACTION:** Required a playable artifact plus explicit live evidence before marking validation passed.  
-**RESULT:** Neither attempt produced a retrievable artifact, so validation remained failed/not-live and no video was misrepresented.  
-**EVIDENCE:** `video.validation.status` was `failed`; `artifact:null`; `provenance.liveEvidence:false`.  
+**RESULT:** The final artifact returned HTTP 200 `video/webm`, supported byte ranges with HTTP 206, had valid WebM magic, decoded at 720×1280, and played for 2.028 seconds in the browser.  
+**EVIDENCE:** `video.validation.status: passed`, `playable:true`, browser `readyState:4`, advancing `currentTime`, and no media error.  
 **STATUS:** PASS
 
 ## N. PROVENANCE
 **ACTION:** Preserved request, project, storyboard, capability, adapter, job, artifact, validation, and persistence fields where returned.  
-**RESULT:** Contract supports the full chain, but no completed chain exists because attempt 1 lacked an artifact and attempt 2 did not return provider job/artifact data to Core.  
-**EVIDENCE:** `/app/src/video-adapter.js`; saved async job evidence.  
-**STATUS:** OPEN PRODUCT GAP
+**RESULT:** Complete chain is preserved: request → project → storyboard → capability → adapter → provider job → durable artifact → validation → persisted project.  
+**EVIDENCE:** Request `e90ec23a-b172-4225-a677-97cc581e2374`, project `d8c5c6a5-06ba-48e8-a496-9f4499efe231`, storyboard `7b883de9-c23f-4bea-aeab-3e999fb5259c`, provider job `01a0be69-c850-7670-bc0d-4510c85cc94f`.  
+**STATUS:** PASS
 
 ## O. PERSISTENCE
 **ACTION:** Persisted users, sessions, jobs, projects, creative results, storyboard, video state, affiliate package, and execution metadata.  
@@ -102,16 +102,16 @@ Branch: `execution/acs-mep-a-e-20260919`
 
 ## Q. GAP STATUS
 **ACTION:** Reconciled the execution against the gap register.  
-**RESULT:** Emergent execution gaps ACS-006 and ACS-007 are closed. GAP-ACS-004 remains open because no real playable artifact and complete causal provenance chain were obtained.  
+**RESULT:** ACS-004, ACS-006, and ACS-007 are closed with runtime evidence.  
 **EVIDENCE:** Updated `/app/docs/execution/GAP-REGISTER.md`.  
-**STATUS:** PASS WITH OPEN PRODUCT GAP
+**STATUS:** PASS
 
 ## R. FINAL GATE
 **ACTION:** Applied evidence-only final gating.  
-**RESULT:** Full-stack ACS, authentication, golden path, fallback semantics, archive, restoration, and conformance pass. Real-video closure is not claimed.  
+**RESULT:** Full-stack ACS, authentication, golden path, live video, validation, provenance, archive, restoration, and conformance pass.  
 **EVIDENCE:** Sections A–Q above.  
-**STATUS:** PASS WITH OPEN PRODUCT GAP
+**STATUS:** PASS
 
 ## FINAL STATUS
 
-**PASS WITH OPEN PRODUCT GAP**
+**PASS**

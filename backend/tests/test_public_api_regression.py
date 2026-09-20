@@ -85,7 +85,7 @@ def test_login_logout_and_session_restore(api_client, user_context):
     user_context["token"] = relogin.json()["token"]
 
 
-def test_capability_honest_fallback(api_client, user_context):
+def test_capability_state_is_honest(api_client, user_context):
     response = api_client.get(
         f"{BASE_URL}/api/capabilities/video",
         headers=_auth_headers(user_context["token"]),
@@ -95,11 +95,22 @@ def test_capability_honest_fallback(api_client, user_context):
     data = response.json()
     assert data["capability"] == "real_ai_video_generation"
     assert data["adapterContract"] == "acs-video-adapter-v1"
-    assert data["mode"] == "fallback"
-    assert isinstance(data.get("reason"), str) and len(data["reason"].strip()) > 0
+    assert data["mode"] in {"fallback", "live"}
+    if data["mode"] == "fallback":
+        assert isinstance(data.get("reason"), str) and len(data["reason"].strip()) > 0
+    else:
+        assert data.get("reason") is None
+        assert data["profile"]["asyncJobs"] is True
 
 
 def test_generation_job_completes_and_payload_integrity(api_client, user_context):
+    capability = api_client.get(
+        f"{BASE_URL}/api/capabilities/video",
+        headers=_auth_headers(user_context["token"]),
+        timeout=20,
+    ).json()
+    if capability["mode"] == "live" and os.environ.get("ALLOW_BILLABLE_MEDIA_TESTS") != "true":
+        pytest.skip("Live media is enabled; refusing an unapproved billable regression submission")
     payload = {
         "projectName": "TEST Project Integrity",
         "productName": "Atlas Travel Bottle",
@@ -170,7 +181,8 @@ def test_generation_job_completes_and_payload_integrity(api_client, user_context
 
 def test_history_restore_no_regeneration(api_client, user_context):
     project_id = user_context["project_id"]
-    assert project_id
+    if not project_id:
+        pytest.skip("No non-billable generated project is available for this isolated test user")
 
     restored = api_client.get(
         f"{BASE_URL}/api/projects/{project_id}",
@@ -185,6 +197,8 @@ def test_history_restore_no_regeneration(api_client, user_context):
 
 
 def test_project_archive_list_and_delete(api_client, user_context):
+    if not user_context["project_id"]:
+        pytest.skip("No non-billable generated project is available for this isolated test user")
     listing = api_client.get(f"{BASE_URL}/api/projects", headers=_auth_headers(user_context["token"]), timeout=20)
     assert listing.status_code == 200
     projects = listing.json()["projects"]

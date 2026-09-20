@@ -102,6 +102,51 @@ export function resolveVideoCapability(env = process.env) {
   return {capability:VIDEO_CAPABILITY,adapterContract:VIDEO_ADAPTER_CONTRACT,mode:"live",profile};
 }
 
+function wait(milliseconds) {
+  return new Promise((resolve)=>setTimeout(resolve,milliseconds));
+}
+
+function adapterError(payload, requestContext, reason) {
+  return {
+    status:"adapter_error",generationMode:"live",artifact:null,capability:VIDEO_CAPABILITY,
+    adapterContract:VIDEO_ADAPTER_CONTRACT,...requestContext,
+    provider:payload?.provider??null,providerJobId:payload?.providerJobId??null,
+    validation:{status:"failed",reason,checkedAt:new Date().toISOString()},
+    provenance:payload?.provenance??{liveEvidence:false}
+  };
+}
+
+async function pollVideoAdapter(initialPayload, resolution, requestContext, env) {
+  const adapterOrigin = new URL(env.ACS_VIDEO_GENERATOR_URL).origin;
+  const statusUrl = new URL(initialPayload.statusUrl);
+  if (statusUrl.origin !== adapterOrigin) return adapterError(initialPayload,requestContext,"Adapter status URL origin mismatch");
+  const timeoutSeconds = Number(env.ACS_VIDEO_POLL_TIMEOUT_SECONDS);
+  if (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0) return adapterError(initialPayload,requestContext,"ACS_VIDEO_POLL_TIMEOUT_SECONDS is required for asynchronous video jobs");
+  const pollIntervalMs = Number(env.ACS_VIDEO_POLL_INTERVAL_MS);
+  if (!Number.isFinite(pollIntervalMs) || pollIntervalMs <= 0) return adapterError(initialPayload,requestContext,"ACS_VIDEO_POLL_INTERVAL_MS is required for asynchronous video jobs");
+  const deadline = Date.now() + timeoutSeconds * 1000;
+  let transientFailures = 0;
+  while (Date.now() < deadline) {
+    await wait(pollIntervalMs);
+    try {
+      const response = await fetch(statusUrl,{headers:{"x-acs-request-id":requestContext.requestId}});
+      if (!response.ok) {
+        transientFailures += 1;
+        if (transientFailures < 5 && response.status >= 500) continue;
+        return adapterError(initialPayload,requestContext,`Video adapter status returned HTTP ${response.status}`);
+      }
+      transientFailures = 0;
+      const payload = await response.json();
+      if (payload.status === "failed") return adapterError(payload,requestContext,payload.error||"Video adapter job failed");
+      if (payload.status === "completed" || payload.artifact) return normalizeVideoResult(payload,requestContext);
+    } catch (error) {
+      transientFailures += 1;
+      if (transientFailures >= 5) return adapterError(initialPayload,requestContext,error.message);
+    }
+  }
+  return adapterError(initialPayload,requestContext,"Video adapter polling timed out");
+}
+
 export async function generateVideoResult(project, storyboard, creative, env = process.env) {
   const resolution = resolveVideoCapability(env);
   if (resolution.mode === "fallback") return {
@@ -120,13 +165,10 @@ export async function generateVideoResult(project, storyboard, creative, env = p
       headers:{"content-type":"application/json","x-acs-request-id":requestId},
       body:JSON.stringify(buildVideoAdapterRequest({requestId,project,storyboard,creative,capabilityProfile:resolution.profile}))
     });
-    if (!response.ok) return {
-      status:"adapter_error",generationMode:"live",artifact:null,capability:VIDEO_CAPABILITY,
-      adapterContract:VIDEO_ADAPTER_CONTRACT,...requestContext,
-      validation:{status:"failed",reason:`Video adapter returned HTTP ${response.status}`,checkedAt:new Date().toISOString()},
-      provenance:{liveEvidence:false}
-    };
-    return normalizeVideoResult(await response.json(),requestContext);
+    const payload=await response.json().catch(()=>({}));
+    if (!response.ok) return adapterError(payload,requestContext,payload.error||`Video adapter returned HTTP ${response.status}`);
+    if (response.status===202||["queued","processing"].includes(payload.status)) return pollVideoAdapter(payload,resolution,requestContext,env);
+    return normalizeVideoResult(payload,requestContext);
   } catch (error) {
     return {
       status:"adapter_unreachable",generationMode:"live",artifact:null,capability:VIDEO_CAPABILITY,

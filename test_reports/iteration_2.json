@@ -1,0 +1,41 @@
+{
+  "summary": "Validated timeout/retrieval fix with read-only backend + UI checks. No new media generation was triggered. Existing async job/project restore and artifact playback work end-to-end.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/app/.data/acs-timeout-fix-status.json",
+        "issue": "Evidence snapshot still points to .mp4 artifact while live persisted state/API now serve normalized .webm artifact."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_timeout_fix_readonly.py",
+    "/app/test_reports/pytest/pytest_results_iteration_2.xml"
+  ],
+  "action_items": [
+    "Optionally align /app/.data/acs-timeout-fix-status.json artifact extension with current normalized .webm output for consistency."
+  ],
+  "critical_code_review_comments": [
+    "Provider-specific identifiers (fal endpoint/model/auth) remain isolated in /app/backend/server.py; ACS Core files under /app/src remain provider-neutral.",
+    "Async adapter polling behavior is covered and passing in root unit tests (including 202 submit + status polling semantics)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_timeout_fix_readonly.py",
+    "/app/test_reports/iteration_2.json"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Do not call POST /api/generation-jobs or POST /api/projects (billable risk). Use existing job c2ac8f38-439a-47a3-836b-354b49cc9f4b and project d8c5c6a5-06ba-48e8-a496-9f4499efe231 for read-only validation.",
+  "rca of the issue": "Root cause fix behavior validated: adapter submit returns 202 quickly, provider job identity is persisted, backend resumes/polls provider asynchronously, and ACS Core polls short status calls to completion instead of blocking a single long request. Verified by passing async adapter unit test and persisted/job API state checks."
+}

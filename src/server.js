@@ -1,6 +1,7 @@
 import http from "node:http";
 import crypto from "node:crypto";
-import {readFile,writeFile,mkdir} from "node:fs/promises";
+import {createReadStream} from "node:fs";
+import {readFile,writeFile,mkdir,stat} from "node:fs/promises";
 import {fileURLToPath} from "node:url";
 import {extname,join,normalize} from "node:path";
 import {executeGoldenPath,resolveVideoCapability} from "./domain.js";
@@ -12,7 +13,7 @@ const publicApiBase = process.env.REACT_APP_BACKEND_URL;
 if (!dataFile) throw new Error("ACS_DATA_FILE is required");
 if (!publicApiBase) throw new Error("REACT_APP_BACKEND_URL is required");
 const publicDir = fileURLToPath(new URL("../frontend/public",import.meta.url));
-const mime = {".html":"text/html; charset=utf-8",".css":"text/css; charset=utf-8",".js":"text/javascript; charset=utf-8",".svg":"image/svg+xml",".png":"image/png",".jpg":"image/jpeg",".webp":"image/webp",".mp4":"video/mp4"};
+const mime = {".html":"text/html; charset=utf-8",".css":"text/css; charset=utf-8",".js":"text/javascript; charset=utf-8",".svg":"image/svg+xml",".png":"image/png",".jpg":"image/jpeg",".webp":"image/webp",".mp4":"video/mp4",".webm":"video/webm"};
 
 async function loadState(){
   try {
@@ -30,11 +31,22 @@ function tokenFrom(req){return req.headers.authorization?.startsWith("Bearer ")?
 async function currentUser(req,state){const session=state.sessions[tokenFrom(req)];return session?state.users[session.userId]:null;}
 function routeId(path){const match=path.match(/^\/api\/projects\/([^/]+)$/);return match?.[1];}
 
-async function serveStatic(path,res){
+async function serveStatic(req,path,res){
   const requested=path==="/"?"index.html":path.replace(/^\//,"");
   const safe=normalize(requested).replace(/^(\.\.(\/|\\|$))+/,"");
   const target=join(publicDir,safe);
-  try {const body=await readFile(target);res.writeHead(200,{"content-type":mime[extname(target)]||"application/octet-stream"});return res.end(body);} catch {}
+  try {
+    const details=await stat(target),contentType=mime[extname(target)]||"application/octet-stream",range=req.headers.range;
+    if(req.method==="HEAD"){res.writeHead(200,{"content-type":contentType,"content-length":details.size,"accept-ranges":"bytes"});return res.end();}
+    if(range){
+      const match=range.match(/bytes=(\d*)-(\d*)/),start=match?.[1]?Number(match[1]):0,end=match?.[2]?Math.min(Number(match[2]),details.size-1):details.size-1;
+      if(!match||start>end||start>=details.size){res.writeHead(416,{"content-range":`bytes */${details.size}`});return res.end();}
+      res.writeHead(206,{"content-type":contentType,"content-length":end-start+1,"content-range":`bytes ${start}-${end}/${details.size}`,"accept-ranges":"bytes"});
+      return createReadStream(target,{start,end}).pipe(res);
+    }
+    res.writeHead(200,{"content-type":contentType,"content-length":details.size,"accept-ranges":"bytes"});
+    return createReadStream(target).pipe(res);
+  } catch {}
   try {const body=await readFile(join(publicDir,"index.html"));res.writeHead(200,{"content-type":mime[".html"]});return res.end(body);} catch {return json(res,404,{error:"not found"});}
 }
 
@@ -107,7 +119,7 @@ const server=http.createServer(async(req,res)=>{try{
     const result=state.projects[id];if(!result||result.ownerId!==user.id)return json(res,404,{error:"Project not found."});
     delete state.projects[id];await saveState(state);return json(res,200,{ok:true});
   }
-  if(req.method==="GET")return serveStatic(path,res);
+  if(req.method==="GET"||req.method==="HEAD")return serveStatic(req,path,res);
   return json(res,404,{error:"not found"});
 }catch(error){return json(res,400,{error:error.message});}});
 
