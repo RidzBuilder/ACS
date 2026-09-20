@@ -21,3 +21,10 @@ Human-defined product intent, behavior, data contracts, quality gates, constrain
 
 ## Workflow
 Inspect → map capability → plan → implement → test → validate → report.
+
+
+## Locked architecture
+- ACS Core is provider-agnostic.
+- `real_ai_video_generation` is the capability contract; `acs-video-adapter-v1` is the provider-neutral implementation boundary.
+- Provider-specific adapters are plug-ins/evidence implementations only and must not become product-level dependencies.
+- See `docs/execution/ACS-CORE-ARCHITECTURE-LOCK-v1.0.md`.
