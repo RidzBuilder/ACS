@@ -9,6 +9,7 @@
 | GAP-ACS-005 | B/D | Durable project archive not implemented at baseline | HIGH | Implement file-backed canonical project store and retrieve by project ID without regeneration | CLOSED — RUNTIME EVIDENCE PASS |
 | GAP-ACS-006 | E | No Emergent connector/action available in this execution environment | BLOCKING FOR E EXECUTION | Import canonical branch manually in Emergent or provide an available Emergent integration | OPEN |
 | GAP-ACS-007 | E | External Emergent build/runtime evidence unavailable | BLOCKING FOR E PASS | Capture import/build/start/test/golden-path evidence from Emergent | OPEN |
+| GAP-ACS-008 | Account 2 Forensic Re-evaluation | Live capability / universal media credit resolution ambiguity | BLOCKING FOR ACCOUNT 2 REPRODUCTION | Identify the causal source of LIVE vs FALLBACK and the origin/scope of the “Insufficient universal media credits” decision using non-generative evidence; classify account/project/environment/entitlement/adapter/provider scope; do not spend generation credits for diagnosis | OPEN — DECISION POINT UNRESOLVED |
 
 ## Adapter-Agnostic Architecture Re-Audit
 
@@ -49,3 +50,30 @@ All conditions below are mandatory and must be evidenced from the same ACS execu
 9. **Re-audit** — only after evidence 1–8 exist may GAP-ACS-004 move to CLOSED.
 
 A direct provider job created outside the ACS execution path does not close GAP-ACS-004.
+
+## Account 2 Forensic Re-evaluation
+
+### New observation
+- Project #1 produced one observed live video.
+- Subsequent newly created projects returned fallback with the message: `No live video was claimed — Insufficient universal media credits`.
+- The same fallback behavior was observed after creating a new project in a new account.
+
+### Repository evidence
+- GitHub code search in `RidzBuilder/ACS` returned no occurrence of “Insufficient universal media credits”, “universal media credits”, or related credit/fallback search terms.
+- The canonical `src/domain.js` fallback reason is “No usable live video generator configured.”, which is distinct from the observed message.
+
+### Current classification
+This finding is an execution/integration evidence ambiguity, not an ACS Core architecture failure. The causal decision point is not yet identified.
+
+### Required non-generative verification
+- Compare Project #1 live persisted metadata against Project #2 fallback metadata.
+- Inspect runtime/environment capability-resolution inputs.
+- Trace where the observed universal-media-credit message is generated.
+- Determine whether the decision is account-, project-, environment-, entitlement-, adapter-, or provider-scoped.
+- Verify whether `ACS_VIDEO_GENERATOR_URL` or an equivalent live capability is present and usable in the execution environment.
+- Do not trigger additional video generation solely for diagnosis.
+
+### Account 2 gate impact
+Account 2 Reproduction & Evidence Integrity Readiness Gate remains **HOLD / BLOCKED PENDING DECISION-POINT IDENTIFICATION** until the ambiguity is causally resolved sufficiently for controlled reproduction.
+
+A PASS may only be recorded when the gate requirements are independently evidenced in Account 2.
