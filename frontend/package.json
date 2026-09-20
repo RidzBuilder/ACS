@@ -1,0 +1,9 @@
+{
+  "name": "acs-v3-studio",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file=.env --watch ../src/server.js"
+  }
+}

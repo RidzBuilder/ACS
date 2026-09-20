@@ -1,0 +1,166 @@
+{
+  "project_name": "Affiliate AI Content Studio V3 (ACS)",
+  "app_type": "hybrid_fullstack",
+  "archetype": "Cyber-Precision Creative Studio",
+  "theme": {
+    "default_mode": "dark",
+    "background": "#090A0F",
+    "surface_primary": "#121520",
+    "surface_secondary": "#1A1F2C",
+    "surface_glass": "rgba(18, 21, 32, 0.75)",
+    "border_subtle": "rgba(255, 255, 255, 0.08)",
+    "border_active": "rgba(139, 92, 246, 0.4)",
+    "accent_primary": "#8B5CF6",
+    "accent_cyan": "#06B6D4",
+    "status_live": "#10B981",
+    "status_fallback": "#F59E0B",
+    "status_error": "#EF4444",
+    "text_primary": "#F8FAFC",
+    "text_secondary": "#94A3B8",
+    "text_muted": "#64748B"
+  },
+  "typography": {
+    "headline_font": "Outfit, 'Plus Jakarta Sans', sans-serif",
+    "body_font": "'DM Sans', Manrope, sans-serif",
+    "mono_font": "'JetBrains Mono', 'Fira Code', monospace",
+    "hierarchy": {
+      "h1_hero": "text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight",
+      "h2_section": "text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight",
+      "h3_subsection": "text-xl sm:text-2xl font-semibold",
+      "h4_card": "text-lg sm:text-xl font-medium",
+      "body_text": "text-base leading-relaxed text-slate-300",
+      "caption_text": "text-xs uppercase tracking-widest font-mono text-slate-400"
+    }
+  },
+  "navigation_structure": {
+    "type": "Persistent Collapsible Sidebar",
+    "desktop_behavior": "Always visible sidebar with genuine toggle expand/collapse (expanded 256px, collapsed 72px)",
+    "mobile_behavior": "Off-canvas drawer with z-50 overlay",
+    "routes": [
+      { "path": "/", "label": "Home", "icon": "LayoutDashboard", "testid": "nav-item-home" },
+      { "path": "/create", "label": "Create Content", "icon": "Sparkles", "testid": "nav-item-create" },
+      { "path": "/history", "label": "History Archive", "icon": "History", "testid": "nav-item-history" },
+      { "path": "/support", "label": "Support & Docs", "icon": "HelpCircle", "testid": "nav-item-support" },
+      { "path": "/settings", "label": "Settings", "icon": "Settings", "testid": "nav-item-settings" }
+    ],
+    "header_bar": {
+      "style": "backdrop-blur-xl bg-[#090A0F]/80 border-b border-white/10 sticky top-0 z-40 px-6 py-4 flex justify-between items-center",
+      "elements": ["Brand Logo + ACS V3 Badge", "Language Switcher (EN / ID)", "Video Engine Capability Indicator", "User Profile / Auth Controls"]
+    }
+  },
+  "workflow_steps_ui": {
+    "step_1_product_input": {
+      "title": "Product Context & References",
+      "components": [
+        "Project Name input (`data-testid='input-project-name'`)",
+        "Product Name input (`data-testid='input-product-name'`)",
+        "Product Description text area (`data-testid='input-product-description'`)",
+        "Multi-Image Uploader component for reference images (`data-testid='input-product-images'`)",
+        "Creative Instruction / Prompt Master (`data-testid='input-creative-instruction'`) - internal only indicator"
+      ]
+    },
+    "step_2_creative_preset": {
+      "title": "Category & Capability Configuration",
+      "components": [
+        "Content Category Selector: UGC, Unboxing, Reviewer (`data-testid='select-content-type'`)",
+        "Language Selector: English (en), Bahasa Indonesia (id) (`data-testid='select-language'`)",
+        "Target Duration selector (e.g. 10s: 3s intro, 4s demo, 3s CTA)",
+        "Resolved Video Engine capability pill (Live Adapter `acs-video-adapter-v1` vs Honest Fallback)"
+      ]
+    },
+    "step_3_storyboard_review": {
+      "title": "Derived Creative Direction & Scene Storyboard",
+      "components": [
+        "Derived Objective, Audience Angle, and Hook Cards",
+        "3-Scene Intent Timeline Matrix (`data-testid='storyboard-scenes'`) displaying visual prompt, motion action, and duration per scene"
+      ]
+    },
+    "step_4_generation_execution": {
+      "title": "Real AI Video Execution & Validation Gate",
+      "components": [
+        "Execution Status Banner: Live Adapter payload processing or Explicit Fallback notification",
+        "Validation provenance metadata: requestId, provider, providerJobId, artifact validation status (`passed` / `fallback`)",
+        "Honest transparency banner: Never fabricates fake job IDs or video outputs"
+      ]
+    },
+    "step_5_affiliate_package": {
+      "title": "Canonical Affiliate Package Output",
+      "canonical_fields": [
+        { "field": "productName", "label": "Product Name", "testid": "package-product-name" },
+        { "field": "productDescription", "label": "Product Description", "testid": "package-product-description" },
+        { "field": "caption", "label": "Language-Aware Caption", "testid": "package-caption" },
+        { "field": "cta", "label": "Contextual CTA", "testid": "package-cta" },
+        { "field": "hashtags", "label": "Normalized Hashtags", "testid": "package-hashtags" }
+      ],
+      "features": ["1-Click Copy Package", "Language Context Badge (EN / ID)", "Playable Video Container with HTML5 video player"]
+    }
+  },
+  "archive_and_restoration": {
+    "title": "Project Archive & History",
+    "behavior": "Restores exact stored state without triggering re-generation when navigating back, refreshing page, or re-logging.",
+    "list_view": "Grid of saved projects showing project name, product image thumbnail, content type, generation mode (live/fallback), creation date, and restore button (`data-testid='btn-restore-project-{id}'`)."
+  },
+  "image_urls": [
+    {
+      "category": "creator_studio_bg",
+      "url": "https://images.unsplash.com/photo-1664277497087-51787d2b9d15?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "alt": "Creator Studio Production Environment"
+    },
+    {
+      "category": "product_review_vlog",
+      "url": "https://images.unsplash.com/photo-1673767297241-f072cfefa0cd?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "alt": "Creator Reviewing Product in Studio"
+    },
+    {
+      "category": "creator_unboxing",
+      "url": "https://images.pexels.com/photos/12432852/pexels-photo-12432852.jpeg?auto=compress&cs=tinysrgb&w=940",
+      "alt": "Creator Demonstrating Product"
+    },
+    {
+      "category": "tech_reviewer_studio",
+      "url": "https://images.pexels.com/photos/6333750/pexels-photo-6333750.jpeg?auto=compress&cs=tinysrgb&w=940",
+      "alt": "Tech Content Reviewer Setup"
+    }
+  ],
+  "testing_contract": {
+    "mandatory_data_testid_rules": "All buttons, form inputs, navigation links, tabs, video elements, and status badges MUST have explicit data-testid attributes in kebab-case.",
+    "key_testids": [
+      "nav-sidebar",
+      "nav-toggle-btn",
+      "nav-item-home",
+      "nav-item-create",
+      "nav-item-history",
+      "nav-item-support",
+      "nav-item-settings",
+      "btn-register-submit",
+      "btn-login-submit",
+      "btn-logout",
+      "input-project-name",
+      "input-product-name",
+      "input-product-description",
+      "input-product-images",
+      "input-creative-instruction",
+      "select-content-type",
+      "select-language",
+      "btn-generate-content",
+      "capability-status-badge",
+      "video-artifact-player",
+      "package-product-name",
+      "package-product-description",
+      "package-caption",
+      "package-cta",
+      "package-hashtags",
+      "btn-copy-package",
+      "history-project-card"
+    ]
+  },
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+    "Preserve ACS Core architecture and node backend contracts without breaking existing APIs",
+    "Ensure dark theme aesthetic is cohesive, using deep charcoal/obsidian surfaces (#090A0F) with glowing neon violet (#8B5CF6) and cyan accents (#06B6D4)",
+    "Never hide navigation links behind drop-downs on desktop; maintain a persistent collapsible sidebar",
+    "Always display honest capability resolution: if video generator API is unreachable or not configured, show clear fallback badge without fake video generation",
+    "Ensure all interactive elements have data-testid attributes for E2E testing",
+    "Do not include unrelated billing, payments, subscription tiers, or admin marketplace screens"
+  ],
+  "instructions_to_main_agent": "Use this design system specification to render the full-stack ACS V3 React application with full fidelity to the blueprint."
+}

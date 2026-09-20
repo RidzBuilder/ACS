@@ -7,8 +7,8 @@
 | GAP-ACS-003 | B/D | No executable proof for canonical golden path | BLOCKING | Add domain pipeline and acceptance tests | CLOSED |
 | GAP-ACS-004 | B/D | Real live video capability, playable artifact, and ACS→provider provenance are not proven | BLOCKING FOR LIVE VIDEO | Execute any conforming live adapter through the provider-agnostic ACS contract, validate artifact/provenance, persist, re-test and re-audit | OPEN — LIVE ADAPTER EVIDENCE PENDING |
 | GAP-ACS-005 | B/D | Durable project archive not implemented at baseline | HIGH | Implement file-backed canonical project store and retrieve by project ID without regeneration | CLOSED — RUNTIME EVIDENCE PASS |
-| GAP-ACS-006 | E | No Emergent connector/action available in this execution environment | BLOCKING FOR E EXECUTION | Import canonical branch manually in Emergent or provide an available Emergent integration | OPEN |
-| GAP-ACS-007 | E | External Emergent build/runtime evidence unavailable | BLOCKING FOR E PASS | Capture import/build/start/test/golden-path evidence from Emergent | OPEN |
+| GAP-ACS-006 | E | No Emergent connector/action available in the prior execution environment | BLOCKING FOR E EXECUTION | Execute the canonical branch in an Emergent workspace | CLOSED — EXECUTED IN EMERGENT 2026-09-20 |
+| GAP-ACS-007 | E | External Emergent build/runtime evidence unavailable in the prior audit | BLOCKING FOR E PASS | Capture import/build/start/test/golden-path evidence from Emergent | CLOSED — EVIDENCE CAPTURED 2026-09-20 |
 
 ## Adapter-Agnostic Architecture Re-Audit
 

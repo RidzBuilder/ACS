@@ -3,74 +3,57 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import {executeGoldenPath,resolveVideoCapability} from "../src/domain.js";
 
-const input={
-  projectName:"Demo ACS",
-  productName:"Sample Bottle",
-  productDescription:"A bottle supplied as the reference product.",
-  productImages:["reference://image-1"],
-  creativeInstruction:"Demonstrate the product naturally.",
-  contentType:"UGC",
-  language:"id"
-};
+const input={projectName:"Demo ACS",productName:"Sample Bottle",productDescription:"A bottle supplied as the reference product.",productImages:["reference://image-1"],creativeInstruction:"Demonstrate the product naturally.",contentType:"UGC",platform:"TikTok",targetDurationSeconds:15,language:"id"};
 
-test("golden path",async()=>{
-  const r=await executeGoldenPath(input,{});
-  assert.equal(r.storyboard.scenes.length,3);
-  assert.equal(r.affiliatePackage.productDescription,input.productDescription);
-  assert.notEqual(r.affiliatePackage.caption,input.creativeInstruction);
+test("golden path builds canonical output without leaking internal instruction",async()=>{
+  const result=await executeGoldenPath(input,{});
+  assert.equal(result.storyboard.scenes.length,3);
+  assert.equal(result.storyboard.totalDurationSeconds,15);
+  assert.equal(result.affiliatePackage.productDescription,input.productDescription);
+  assert.equal(result.affiliatePackage.caption.includes(input.creativeInstruction),false);
+  assert.deepEqual(Object.keys(result.affiliatePackage),["productName","productDescription","caption","cta","hashtags"]);
 });
 
-test("fallback honest",async()=>{
-  const r=await executeGoldenPath(input,{});
-  assert.equal(r.video.generationMode,"fallback");
-  assert.equal(r.video.validationStatus,"not_live");
+test("fallback is explicit and honest",async()=>{
+  const result=await executeGoldenPath(input,{});
+  assert.equal(result.video.generationMode,"fallback");
+  assert.equal(result.video.validation.status,"not_live");
+  assert.equal(result.video.artifact,null);
+  assert.equal(result.video.provenance.liveEvidence,false);
 });
 
 test("live adapter unreachable is not evidence",async()=>{
-  const r=await executeGoldenPath(input,{ACS_VIDEO_GENERATOR_URL:"http://127.0.0.1:1"});
-  assert.equal(r.video.generationMode,"live");
-  assert.notEqual(r.video.validationStatus,"passed");
-  assert.equal(r.video.provider,undefined);
+  const result=await executeGoldenPath(input,{ACS_VIDEO_GENERATOR_URL:"http://127.0.0.1:1"});
+  assert.equal(result.video.generationMode,"live");
+  assert.equal(result.video.validation.status,"failed");
+  assert.equal(result.video.provenance.liveEvidence,false);
 });
 
-test("live adapter contract preserves provenance",async()=>{
-  const server=http.createServer(async(req,res)=>{
-    assert.equal(req.method,"POST");
-    assert.equal(req.headers["x-acs-request-id"]?.length>0,true);
-    const body=JSON.parse(await new Promise((resolve,reject)=>{
-      let raw=""; req.on("data",c=>raw+=c); req.on("end",()=>resolve(raw)); req.on("error",reject);
-    }));
+test("adapter contract preserves causal identity and refuses unverified evidence",async()=>{
+  const adapter=http.createServer(async(req,res)=>{
+    const body=JSON.parse(await new Promise((resolve,reject)=>{let raw="";req.on("data",c=>raw+=c);req.on("end",()=>resolve(raw));req.on("error",reject);}));
     assert.equal(body.contract,"acs-video-adapter-v1");
     assert.equal(body.capability,"real_ai_video_generation");
+    assert.equal(body.projectId.length>0,true);
+    assert.equal(body.storyboardId.length>0,true);
     res.writeHead(200,{"content-type":"application/json"});
-    res.end(JSON.stringify({
-      provider:"test-provider",
-      providerJobId:"test-provider-job",
-      requestId:body.requestId,
-      generationMode:"live",
-      artifact:"https://example.invalid/test.mp4",
-      playable:true,
-      provenance:{source:"contract-test-only",liveEvidence:false}
-    }));
+    res.end(JSON.stringify({contract:body.contract,capability:body.capability,provider:"contract-test-adapter",providerJobId:"contract-test-job",requestId:body.requestId,generationMode:"live",artifact:"https://example.invalid/test.mp4",playable:true,provenance:{liveEvidence:false}}));
   });
-  await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
-  const {port}=server.address();
+  await new Promise(resolve=>adapter.listen(0,"127.0.0.1",resolve));
   try {
-    const r=await executeGoldenPath(input,{ACS_VIDEO_GENERATOR_URL:`http://127.0.0.1:${port}`});
-    assert.equal(r.video.status,"ready");
-    assert.equal(r.video.validationStatus,"passed");
-    assert.equal(r.video.provider,"test-provider");
-    assert.equal(r.video.providerJobId,"test-provider-job");
-    assert.equal(r.video.adapterContract,"acs-video-adapter-v1");
-    assert.equal(r.video.provenance.liveEvidence,false);
-  } finally {
-    await new Promise(resolve=>server.close(resolve));
-  }
+    const {port}=adapter.address(),result=await executeGoldenPath(input,{ACS_VIDEO_GENERATOR_URL:`http://127.0.0.1:${port}`});
+    assert.equal(result.video.adapterContract,"acs-video-adapter-v1");
+    assert.equal(result.video.status,"unverified");
+    assert.equal(result.video.validation.status,"unverified");
+    assert.equal(result.project.status,"fallback");
+  } finally {await new Promise(resolve=>adapter.close(resolve));}
 });
 
-test("resolver",()=>{
+test("resolver remains provider-neutral",()=>{
   assert.equal(resolveVideoCapability({}).mode,"fallback");
-  assert.equal(resolveVideoCapability({ACS_VIDEO_GENERATOR_URL:"x"}).mode,"live");
-  assert.equal(resolveVideoCapability({ACS_VIDEO_GENERATOR_URL:"x"}).adapterContract,"acs-video-adapter-v1");
+  const live=resolveVideoCapability({ACS_VIDEO_GENERATOR_URL:"https://adapter.invalid",ACS_VIDEO_CAPABILITY_PROFILE:'{"asyncJobs":true,"durations":[5]}' });
+  assert.equal(live.mode,"live");
+  assert.equal(live.adapterContract,"acs-video-adapter-v1");
+  assert.equal(live.profile.asyncJobs,true);
+  assert.equal("provider" in live,false);
 });
-
