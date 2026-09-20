@@ -1,0 +1,48 @@
+{
+  "summary": "Validated deployment-remediation scope end-to-end on preview URL and local startup probe without calling media-generation endpoints. Confirmed standard frontend start command, APP_URL-safe backend import, runtime config portability, supervisor runtime health, and readonly/provider-neutral integrity suites.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "test harness env resolution",
+        "issue": "Readonly tests prioritize REACT_APP_BACKEND_URL over APP_BASE_URL, which caused false failures when frontend/.env points to production emergent.host; rerun passed after unsetting REACT_APP_BACKEND_URL."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_deployment_startup.py",
+    "/app/backend/tests/test_timeout_fix_readonly.py",
+    "/app/backend/tests/test_tenant_isolation_readonly.py",
+    "/app/backend/tests/test_audit_readonly_integrity.py",
+    "/app/test_reports/pytest/pytest_deployment_iter6_updated.xml",
+    "/app/test_reports/pytest/pytest_readonly_iter6_rerun.xml"
+  ],
+  "action_items": [
+    "Optional hardening: update readonly pytest fixtures to prefer APP_BASE_URL over REACT_APP_BACKEND_URL for preview-environment regressions.",
+    "Commit currently expected deployment files if pending (frontend/.env, backend/.env, deployment test updates) in the main branch workflow."
+  ],
+  "critical_code_review_comments": [
+    "frontend/package.json start script is correct and production-safe: node ../src/server.js (no --watch, no --env-file).",
+    "src/server.js runtime config remains portable: /config.js resolved to preview origin while frontend/.env targets emergent.host.",
+    "Backend APP_URL handling is import-safe (no KeyError): APP_URL defaults to empty string and artifact URL falls back to relative /artifacts/... when absent.",
+    "Provider-neutral contract guard remains locked and unchanged (real_ai_video_generation / acs-video-adapter-v1); Node+Python hybrid architecture remains intact."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_deployment_startup.py",
+    "/app/test_reports/iteration_6.json"
+  ],
+  "success_rate": {
+    "backend": "95%",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Do not run generation endpoints. If readonly suites are run in preview context, avoid sourcing frontend/.env into REACT_APP_BACKEND_URL or explicitly set APP_BASE_URL precedence. Supervisor currently RUNNING with frontend command '/bin/sh -c node ../src/server.js'.",
+  "rca of the issue": "Initial readonly suite failures (Deployment not found 400) were environment-target mismatch, not runtime logic defects. Cause: tests resolve BASE_URL from REACT_APP_BACKEND_URL first; frontend/.env now intentionally points to production emergent.host. In preview test runs, this routed requests to non-matching deployment target. Mitigation: run suites with APP_BASE_URL preview URL and unset/override REACT_APP_BACKEND_URL, or refactor fixture precedence."
+}

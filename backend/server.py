@@ -12,11 +12,12 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 
+load_dotenv(Path(__file__).with_name(".env.local"))
 load_dotenv(Path(__file__).with_name(".env"))
-CORE_URL = os.environ["ACS_CORE_URL"].rstrip("/")
-INTEGRATION_PROXY_URL = os.environ["INTEGRATION_PROXY_URL"].rstrip("/")
-EMERGENT_LLM_KEY = os.environ["EMERGENT_LLM_KEY"]
-APP_URL = os.environ["APP_URL"].rstrip("/")
+CORE_URL = os.environ.get("ACS_CORE_URL", "").rstrip("/")
+INTEGRATION_PROXY_URL = os.environ.get("INTEGRATION_PROXY_URL", "").rstrip("/")
+EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+APP_URL = os.environ.get("APP_URL", "").rstrip("/")
 VIDEO_IMAGE_ENDPOINT_ID = "fal-ai/wan/v2.7/image-to-video"
 VIDEO_TEXT_ENDPOINT_ID = "fal-ai/wan/v2.7/text-to-video"
 FAL_CONTROL_URL = f"{INTEGRATION_PROXY_URL}/api/v1/fal"
@@ -189,7 +190,7 @@ async def _process_video_job(request_id):
                         "providerJobId": job["providerJobId"],
                         "requestId": request_id,
                         "generationMode": "live",
-                        "artifact": f"{APP_URL}/artifacts/{artifact_id}.webm",
+                        "artifact": f"{APP_URL}/artifacts/{artifact_id}.webm" if APP_URL else f"/artifacts/{artifact_id}.webm",
                         "playable": True,
                         "provenance": {
                             "liveEvidence": True,
@@ -235,6 +236,8 @@ async def video_adapter(request: Request):
     payload = await request.json()
     if payload.get("contract") != "acs-video-adapter-v1" or payload.get("capability") != "real_ai_video_generation":
         return JSONResponse(status_code=400, content={"error": "Unsupported adapter contract"})
+    if not INTEGRATION_PROXY_URL or not EMERGENT_LLM_KEY:
+        return JSONResponse(status_code=503, content={"error": "Live media integration is not configured in this environment"})
     requested = payload.get("requestedOutput", {})
     duration = int(requested.get("durationSeconds") or 5)
     if duration < 2 or duration > 15:

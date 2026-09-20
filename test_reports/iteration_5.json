@@ -1,0 +1,41 @@
+{
+  "summary": "Validated deployment-remediation scope for backend/frontend startup without invoking forbidden generation endpoints. Confirmed APP_URL-absent backend import safety, packaged Node CLI availability, production-like Node startup with frontend env, supervisor/public health endpoints, and read-only integrity suites.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_deployment_startup.py",
+    "/app/backend/tests/test_timeout_fix_readonly.py",
+    "/app/backend/tests/test_tenant_isolation_readonly.py",
+    "/app/backend/tests/test_audit_readonly_integrity.py",
+    "/app/test_reports/pytest/pytest_results_iteration_5.xml"
+  ],
+  "action_items": [
+    "No blocker found in this deployment-startup validation scope.",
+    "Preserve current APP_URL optional handling and adapter 503 configuration guard behavior."
+  ],
+  "critical_code_review_comments": [
+    "backend/server.py safely reads APP_URL with a default empty string, preventing import-time KeyError when APP_URL is absent.",
+    "Relative artifact fallback is correctly gated in completed normalization response construction: APP_URL-prefixed URL when set, '/artifacts/...' when absent.",
+    "Adapter configuration guard is honest and non-generative: /internal/video-adapter returns 503 when INTEGRATION_PROXY_URL or EMERGENT_LLM_KEY is missing.",
+    "Locked ACS core/provider-neutral constants remain unchanged (real_ai_video_generation, acs-video-adapter-v1) and existing Node+Python hybrid architecture remains intact."
+  ],
+  "updated_files": [
+    "/app/test_reports/iteration_5.json"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Forbidden endpoints were not invoked: POST /api/projects, POST /api/generation-jobs, /internal/video-adapter. Commands run: yarn test, yarn run check, python compile, deployment startup pytest + readonly integrity suites. Public URL returned 200 for /, /health, /api/health, /config.js; supervisor backend/frontend RUNNING.",
+  "rca of the issue": "Original rollout failures are resolved in current build: packaged node CLI present (v22.20.0) and APP_URL import path no longer hard-fails when env key is absent."
+}

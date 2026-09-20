@@ -4,7 +4,10 @@ import {createReadStream} from "node:fs";
 import {readFile,writeFile,mkdir,stat} from "node:fs/promises";
 import {fileURLToPath} from "node:url";
 import {basename,extname,join,normalize} from "node:path";
+import {loadEnvFile} from "node:process";
 import {executeGoldenPath,resolveVideoCapability,upgradePersistedResult} from "./domain.js";
+
+try { loadEnvFile(fileURLToPath(new URL("../frontend/.env",import.meta.url))); } catch(error) { if(error.code!=="ENOENT") throw error; }
 
 const port = Number(process.env.PORT);
 if (!port) throw new Error("PORT is required");
@@ -30,6 +33,11 @@ async function migratePersistedSemantics(){
   if(changed)await saveState(state);
 }
 function json(res,status,body){res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store"});res.end(JSON.stringify(body));}
+function runtimeApiBase(req){
+  const host=String(req.headers["x-forwarded-host"]||req.headers.host||""),protocol=String(req.headers["x-forwarded-proto"]||"https").split(",")[0].trim();
+  try { if(new URL(publicApiBase).host===host)return publicApiBase; } catch {}
+  return host?`${protocol}://${host}`:publicApiBase;
+}
 function readBody(req){return new Promise((resolve,reject)=>{let raw="";req.on("data",chunk=>{raw+=chunk;if(raw.length>12_000_000)reject(new Error("Payload too large"));});req.on("end",()=>{try{resolve(raw?JSON.parse(raw):{});}catch{reject(new Error("Invalid JSON"));}});req.on("error",reject);});}
 function hashPassword(password,salt=crypto.randomBytes(16).toString("hex")){return {salt,hash:crypto.pbkdf2Sync(password,salt,120000,32,"sha256").toString("hex")};}
 function safeUser(user){return {id:user.id,name:user.name,email:user.email,preferences:user.preferences||{language:"en"}};}
@@ -61,7 +69,7 @@ function cleanFilename(value){return String(value||"artifact").replace(/[^a-zA-Z
 const server=http.createServer(async(req,res)=>{try{
   const url=new URL(req.url,"http://acs.local"), path=url.pathname;
   if(req.method==="GET"&&(path==="/health"||path==="/api/health"))return json(res,200,{ok:true,service:"acs-v3-runtime",version:"0.4.0"});
-  if(req.method==="GET"&&path==="/config.js"){res.writeHead(200,{"content-type":"text/javascript; charset=utf-8","cache-control":"no-store"});return res.end(`window.__ACS_CONFIG__=${JSON.stringify({apiRoot:publicApiBase})};`);}
+  if(req.method==="GET"&&path==="/config.js"){res.writeHead(200,{"content-type":"text/javascript; charset=utf-8","cache-control":"no-store"});return res.end(`window.__ACS_CONFIG__=${JSON.stringify({apiRoot:runtimeApiBase(req)})};`);}
 
   if(req.method==="POST"&&path==="/api/auth/register"){
     const input=await readBody(req),email=String(input.email||"").trim().toLowerCase(),password=String(input.password||""),name=String(input.name||"").trim();
