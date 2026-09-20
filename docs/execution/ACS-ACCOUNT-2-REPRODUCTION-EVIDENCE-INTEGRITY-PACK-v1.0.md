@@ -1,6 +1,6 @@
-# ACS Account 2 Reproduction & Evidence Integrity Pack v1.0
+# ACS Account 2 Reproduction & Evidence Integrity Pack v1.1
 
-Status: LOCK CANDIDATE
+Status: LOCK CANDIDATE — FORENSIC UPDATE
 Source repository: RidzBuilder/ACS
 Baseline branch: execution/acs-mep-a-e-20260919
 
@@ -21,6 +21,7 @@ Transfer verified Account 1 implementation knowledge and evidence into Account 2
 - Honest fallback remains mandatory.
 - Direct provider jobs outside ACS do not close GAP-ACS-004.
 - No credit-consuming experimentation for discovery already established in Account 1.
+- No generation solely to diagnose the new credit/fallback observation.
 
 ## Account 1 verified evidence
 ### EVID-01 — Live video
@@ -42,7 +43,39 @@ Emergent audit verified complete canonical export (acs-project-export-v1) and a 
 ### EVID-06 — Independent audit
 Emergent reported independent verification: 20/20 checks passed, with zero generation credits consumed for the output-integrity audit and no provider, adapter, or locked-core architecture changes.
 
-## Open findings to reproduce/verify
+## EVID-07 — New forensic observation
+Account 1 UX observation:
+1. Project #1 produced a live video.
+2. Subsequent newly created projects produced fallback with the message:
+   `No live video was claimed — Insufficient universal media credits`
+3. The same fallback behavior was subsequently observed after creating a new project in a new account.
+
+## Forensic comparison result
+- Project #1 LIVE is a verified observation.
+- Project #2 FALLBACK and new-account project FALLBACK are verified observations.
+- The exact phrase “Insufficient universal media credits” is not present in the canonical ACS repository code search results.
+- Canonical `src/domain.js` uses a different fallback reason: “No usable live video generator configured.”
+- Therefore the origin and scope of the universal-media-credit decision are not established from the canonical ACS repository alone.
+
+## GAP-ACS-008
+**Live Capability / Universal Media Credit Resolution Ambiguity**
+
+Status: **OPEN — BLOCKING FOR ACCOUNT 2 REPRODUCTION UNTIL DECISION POINT IS IDENTIFIED**
+
+Classification: execution/integration evidence gap, not ACS Core architecture failure.
+
+## Required no-generation verification
+Before Account 2 readiness may be marked PASS:
+- Compare persisted Project #1 live metadata against Project #2 fallback metadata.
+- Inspect runtime/environment capability-resolution inputs.
+- Trace where the observed universal-media-credit message is produced.
+- Determine whether the check is account-, project-, environment-, entitlement-, adapter-, or provider-scoped.
+- Verify `ACS_VIDEO_GENERATOR_URL` or equivalent live capability configuration in the relevant execution environment.
+- Do not trigger additional AI video generation solely for diagnosis.
+
+If remaining verification requires generation-credit spend, stop and classify BLOCKED pending explicit authorization.
+
+## Existing open findings
 ### OPEN-01 — MP4 delivery
 Verify whether the existing downloadable artifact path can produce/convert/expose the existing video as MP4 without AI regeneration. Do not spend generation credits. If conversion requires generation or material credit use, stop and request authorization.
 
@@ -60,12 +93,16 @@ PASS requires:
 4. Reproducibility path is identifiable.
 5. Open findings have a concrete non-generative verification/remediation path.
 6. Credit budget remains protected.
+7. GAP-ACS-008 has been causally identified or otherwise resolved sufficiently for controlled reproduction.
 
 BLOCKED if any blocker prevents controlled reproduction without architectural drift or unnecessary credit use.
 
-## Planned post-gate execution
+## Post-gate execution
 If PASS:
 IMPORT -> INSPECT -> INSTALL/BUILD -> TEST -> CHECK -> START -> HEALTH -> GOLDEN PATH -> DURATION CAPABILITY DISCOVERY -> OUTPUT/CONFORMANCE.
+
+If BLOCKED:
+Document the exact blocker, classify it, perform only the minimum authorized non-generative verification/remediation, then re-run the affected gate.
 
 ## Credit policy for Account 2
 Starting balance target: ~110 credits.
@@ -79,4 +116,4 @@ requested duration -> segmentation -> continuity/state -> segment generation -> 
 This is not authorized for implementation in the readiness gate unless required and separately approved.
 
 ## Evidence handling
-Evidence in this pack documents Account 1 observations. Account 2 must independently verify reproducibility; PASS must not be inherited automatically from Account 1.
+Evidence in this pack documents Account 1 observations plus the new forensic observation. Account 2 must independently verify reproducibility; PASS must not be inherited automatically from Account 1.
