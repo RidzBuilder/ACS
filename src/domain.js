@@ -1,6 +1,5 @@
 import crypto from "node:crypto";
-
-export const VIDEO_CAPABILITY = "real_ai_video_generation";
+import { VIDEO_CAPABILITY, VIDEO_ADAPTER_CONTRACT, buildVideoAdapterRequest, validateVideoAdapterPayload } from "./video-adapter.js";
 
 export function validateProjectInput(input) {
   const required = ["projectName", "productName", "productDescription", "contentType", "language"];
@@ -41,20 +40,7 @@ export function resolveVideoCapability(env = process.env) {
   if (!env.ACS_VIDEO_GENERATOR_URL) {
     return {capability:VIDEO_CAPABILITY,mode:"fallback",reason:"No usable live video generator configured."};
   }
-  return {capability:VIDEO_CAPABILITY,mode:"live",endpoint:env.ACS_VIDEO_GENERATOR_URL,adapterContract:"acs-video-adapter-v1"};
-}
-
-function validateLiveAdapterPayload(payload) {
-  if (!payload?.artifact || !payload?.playable) {
-    return {ok:false,error:"Adapter did not return a playable artifact"};
-  }
-  if (payload.generationMode !== "live") {
-    return {ok:false,error:"Adapter did not explicitly attest live generation"};
-  }
-  if (!payload.provider || !payload.providerJobId || !payload.requestId) {
-    return {ok:false,error:"Adapter did not return complete provider provenance"};
-  }
-  return {ok:true};
+  return {capability:VIDEO_CAPABILITY,mode:"live",endpoint:env.ACS_VIDEO_GENERATOR_URL,adapterContract:VIDEO_ADAPTER_CONTRACT};
 }
 
 export async function generateVideoResult(project, storyboard, env = process.env) {
@@ -69,13 +55,7 @@ export async function generateVideoResult(project, storyboard, env = process.env
     const response=await fetch(resolution.endpoint,{
       method:"POST",
       headers:{"content-type":"application/json","x-acs-request-id":requestId},
-      body:JSON.stringify({
-        contract:"acs-video-adapter-v1",
-        requestId,
-        capability:VIDEO_CAPABILITY,
-        project,
-        storyboard
-      })
+      body:JSON.stringify(buildVideoAdapterRequest({requestId,project,storyboard}))
     });
     if (!response.ok) return {
       status:"adapter_error",generationMode:"live",artifact:null,validationStatus:"failed",
@@ -83,7 +63,7 @@ export async function generateVideoResult(project, storyboard, env = process.env
     };
 
     const payload=await response.json();
-    const validation=validateLiveAdapterPayload(payload);
+    const validation=validateVideoAdapterPayload(payload);
     if (!validation.ok) return {
       status:"invalid_live_artifact",generationMode:"live",artifact:payload?.artifact??null,
       validationStatus:"failed",capability:VIDEO_CAPABILITY,requestId,
