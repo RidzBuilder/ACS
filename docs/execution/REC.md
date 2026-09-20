@@ -1,4 +1,4 @@
-# ACS Repository Execution Contract (REC) v1.1
+# ACS Repository Execution Contract (REC) v1.2
 
 ## Purpose
 Convert the canonical ACS blueprint into an executable repository contract without changing product semantics.
@@ -18,6 +18,7 @@ INPUT PRODUCT → PRODUCT UNDERSTANDING / CREATIVE DIRECTION → STORY / SCENE �
 - `GET /health`
 - `POST /api/projects`
 - `GET /api/projects/:id`
+- `POST /api/adapters/higgsfield` — ACS-callable live Higgsfield Genjutsu bridge
 
 ## Video Capability Contract
 - Required capability remains `real_ai_video_generation`.
@@ -30,6 +31,15 @@ INPUT PRODUCT → PRODUCT UNDERSTANDING / CREATIVE DIRECTION → STORY / SCENE �
 - Without a usable live capability, runtime returns explicit `fallback` and `not_live` state.
 - Fallback must never be presented as a real generated video artifact.
 - Contract tests may validate the adapter boundary, but they do NOT constitute live-provider evidence.
+
+## Higgsfield Bridge Runtime
+- The repository now exposes a real ACS-callable bridge at `POST /api/adapters/higgsfield`.
+- The bridge uses the official Higgsfield API at `https://api.higgsfield.ai` and the Genjutsu Motion Transfer model `higgsfiled/genjutsu/motion-transfer/v1.0`.
+- Provider credentials are server-side only: `HF_API_KEY_ID` and `HF_API_KEY_SECRET`.
+- The bridge requires `referenceVideoUrl` on the project or `ACS_HIGGSFIELD_REFERENCE_VIDEO_URL` plus at least one HTTPS product image.
+- Higgsfield generation is asynchronous; the bridge submits the provider request, polls the provider status, and returns the completed video URL with the real Higgsfield request ID as `providerJobId`.
+- `ACS_VIDEO_GENERATOR_URL` can point to the deployed ACS bridge route, for example `https://<acs-host>/api/adapters/higgsfield`.
+- The bridge must not expose provider credentials to the client or repository.
 
 ## Higgsfield Bridge Requirement
 For the current live-video closure, the configured adapter endpoint must be a real bridge that:
