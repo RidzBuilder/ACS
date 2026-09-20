@@ -13,3 +13,46 @@ jobs:
           node-version: 20
       - run: npm test
       - run: npm run check
+      - name: Verify persistence across process restart
+        shell: bash
+        run: |
+          set -euo pipefail
+          DATA_DIR="$RUNNER_TEMP/acs-data"
+          PORT=38117
+          rm -rf "$DATA_DIR"
+          ACS_DATA_DIR="$DATA_DIR" PORT="$PORT" npm start > "$RUNNER_TEMP/acs-server-1.log" 2>&1 &
+          PID=$!
+          trap 'kill "$PID" 2>/dev/null || true' EXIT
+          for i in {1..30}; do
+            curl -fsS "http://127.0.0.1:$PORT/health" >/dev/null && break
+            sleep 1
+          done
+          RESPONSE="$(
+            curl -fsS -X POST "http://127.0.0.1:$PORT/api/projects"               -H 'content-type: application/json'               -d '{"projectName":"CI Persistence Evidence","productName":"Demo Product","productDescription":"A demo product for persistence verification.","contentType":"UGC","language":"en"}'
+          )"
+          PROJECT_ID="$(node -e 'const x=JSON.parse(process.argv[1]); process.stdout.write(x.project.id)' "$RESPONSE")"
+          printf '%s' "$RESPONSE" > "$RUNNER_TEMP/created.json"
+          kill "$PID"
+          wait "$PID" || true
+          trap - EXIT
+
+          ACS_DATA_DIR="$DATA_DIR" PORT="$PORT" npm start > "$RUNNER_TEMP/acs-server-2.log" 2>&1 &
+          PID=$!
+          trap 'kill "$PID" 2>/dev/null || true' EXIT
+          for i in {1..30}; do
+            curl -fsS "http://127.0.0.1:$PORT/health" >/dev/null && break
+            sleep 1
+          done
+          curl -fsS "http://127.0.0.1:$PORT/api/projects/$PROJECT_ID" > "$RUNNER_TEMP/restored.json"
+
+          node -e '
+            const fs=require("fs");
+            const base=process.env.RUNNER_TEMP;
+            const a=JSON.parse(fs.readFileSync(base+"/created.json","utf8"));
+            const b=JSON.parse(fs.readFileSync(base+"/restored.json","utf8"));
+            if (a.project.id !== b.project.id) throw new Error("project id changed");
+            if (a.project.updatedAt !== b.project.updatedAt) throw new Error("updatedAt changed; possible regeneration");
+            if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error("restored result differs from persisted result");
+            if (b.videoResult?.generationMode === "live") throw new Error("fixture unexpectedly claims live generation");
+            console.log("PERSISTENCE_EVIDENCE_PASS", b.project.id);
+          '
