@@ -9,7 +9,7 @@
 | GAP-ACS-005 | B/D | Durable project archive not implemented at baseline | HIGH | Implement file-backed canonical project store and retrieve by project ID without regeneration | CLOSED — RUNTIME EVIDENCE PASS |
 | GAP-ACS-006 | E | No Emergent connector/action available in this execution environment | BLOCKING FOR E EXECUTION | Import canonical branch manually in Emergent or provide an available Emergent integration | OPEN |
 | GAP-ACS-007 | E | External Emergent build/runtime evidence unavailable | BLOCKING FOR E PASS | Capture import/build/start/test/golden-path evidence from Emergent | OPEN |
-| GAP-ACS-008 | Account 2 Forensic Re-evaluation | Live capability / universal media credit resolution ambiguity | BLOCKING FOR ACCOUNT 2 REPRODUCTION | Identify the causal source of LIVE vs FALLBACK and the origin/scope of the “Insufficient universal media credits” decision using non-generative evidence; classify account/project/environment/entitlement/adapter/provider scope; do not spend generation credits for diagnosis | OPEN — DECISION POINT UNRESOLVED |
+| GAP-ACS-008 | Account 2 Forensic Re-evaluation | Live capability / universal media credit resolution ambiguity | BLOCKING FOR ACCOUNT 2 REPRODUCTION | Identify the causal source of LIVE vs FALLBACK and the origin/scope of the “Insufficient universal media credits” decision using non-generative evidence; classify account/project/environment/entitlement/adapter/provider scope; do not spend generation credits for diagnosis | OPEN — NARROWED; INTEGRATION-PROXY BILLING/ENTITLEMENT AUTHORITY UNPROVEN |
 
 ## Adapter-Agnostic Architecture Re-Audit
 
@@ -74,6 +74,14 @@ This finding is an execution/integration evidence ambiguity, not an ACS Core arc
 - Do not trigger additional video generation solely for diagnosis.
 
 ### Account 2 gate impact
-Account 2 Reproduction & Evidence Integrity Readiness Gate remains **HOLD / BLOCKED PENDING DECISION-POINT IDENTIFICATION** until the ambiguity is causally resolved sufficiently for controlled reproduction.
+Emergent forensic evidence narrows GAP-ACS-008 to the adapter submission boundary. The first proven divergence is:
+
+ADAPTER INVOCATION → INTEGRATION PROXY HTTP 402 → NO PROVIDER JOB → NO ARTIFACT → FALLBACK.
+
+The literal “Insufficient universal media credits” is produced by the implementation plugin; ACS Core does not produce it. The final billing/entitlement authority behind the HTTP 402 remains unproven because no raw upstream decision record, billing decision ID, quota snapshot, entitlement record, or upstream correlation ID is persisted.
+
+Therefore GAP-ACS-008 remains **OPEN — NARROWED**, and Account 2 remains **BLOCKED**. The next minimum verification is read-only retrieval of the existing integration-proxy billing/entitlement audit record for request `80db4ff6-820e-4c62-9c1e-b9ea51c7278b`.
+
+No generation, retry, provider submission, architecture change, adapter change, or feature expansion is authorized for this diagnostic step.
 
 A PASS may only be recorded when the gate requirements are independently evidenced in Account 2.
