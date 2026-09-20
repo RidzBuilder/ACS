@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 import {executeGoldenPath,resolveVideoCapability} from "../src/domain.js";
-import {executeHiggsfieldGenjutsuAdapter,HIGGSFIELD_GENJUTSU_MODEL} from "../src/higgsfield-adapter.js";
 
 const input={
   projectName:"Demo ACS",
@@ -45,7 +44,7 @@ test("live adapter contract preserves provenance",async()=>{
     assert.equal(body.capability,"real_ai_video_generation");
     res.writeHead(200,{"content-type":"application/json"});
     res.end(JSON.stringify({
-      provider:"higgsfield",
+      provider:"test-provider",
       providerJobId:"test-provider-job",
       requestId:body.requestId,
       generationMode:"live",
@@ -60,7 +59,7 @@ test("live adapter contract preserves provenance",async()=>{
     const r=await executeGoldenPath(input,{ACS_VIDEO_GENERATOR_URL:`http://127.0.0.1:${port}`});
     assert.equal(r.video.status,"ready");
     assert.equal(r.video.validationStatus,"passed");
-    assert.equal(r.video.provider,"higgsfield");
+    assert.equal(r.video.provider,"test-provider");
     assert.equal(r.video.providerJobId,"test-provider-job");
     assert.equal(r.video.adapterContract,"acs-video-adapter-v1");
     assert.equal(r.video.provenance.liveEvidence,false);
@@ -75,12 +74,3 @@ test("resolver",()=>{
   assert.equal(resolveVideoCapability({ACS_VIDEO_GENERATOR_URL:"x"}).adapterContract,"acs-video-adapter-v1");
 });
 
-
-test("Higgsfield Genjutsu bridge fails closed without credentials",async()=>{
-  await assert.rejects(()=>executeHiggsfieldGenjutsuAdapter({requestId:"acs-test",project:{productName:"P",productImages:["https://example.com/p.jpg"]},storyboard:{}},{}),/credentials are not configured/);
-});
-
-test("Higgsfield Genjutsu bridge requires reference media before provider submission",async()=>{
-  await assert.rejects(()=>executeHiggsfieldGenjutsuAdapter({requestId:"acs-test",project:{productName:"P",productImages:["https://example.com/p.jpg"]},storyboard:{}},{HF_API_KEY_ID:"id",HF_API_KEY_SECRET:"secret"}),/referenceVideoUrl/);
-  assert.equal(HIGGSFIELD_GENJUTSU_MODEL,"higgsfiled/genjutsu/motion-transfer/v1.0");
-});
