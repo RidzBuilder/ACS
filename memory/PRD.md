@@ -20,6 +20,7 @@ Build, run, validate, and demonstrate the existing ACS architecture as a full-st
 - Verified real AI video generation with durable VP9/Opus playback, byte-range delivery, and complete ACS provenance.
 - Persistent archive, restore without regeneration, copy/download, delete, and language settings.
 - Public health, automated acceptance/regression tests, visual checks, and final evidence report.
+- Output-integrity remediation: durable video download, normalized product intelligence, context-aware Caption/CTA, versioned legacy migration, and canonical `acs-project-export-v1` JSON export.
 
 ## Prioritized Backlog
 ### P0
@@ -28,6 +29,7 @@ Build, run, validate, and demonstrate the existing ACS architecture as a full-st
 ### P1
 - Add adapter-level tests for completed-with-error status and transient result retrieval.
 - Add a restart/resume regression around an active adapter job without resubmission.
+- Preserve the explicit export contract and semantic migration invariants in future schema changes.
 
 ### P2
 - Add richer product-reference previews and archive filters while preserving current scope and contracts.

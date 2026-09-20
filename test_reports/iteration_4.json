@@ -1,0 +1,40 @@
+{
+  "summary": "Completed read-only ACS integrity regression for prior iteration_3 failures and full output-integrity scope without invoking forbidden generation endpoints. Tenant isolation, Azarine owner-only access, export root schema, large export integrity, artifact download semantics, and migration/provenance invariants all passed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test/acceptance.test.js",
+    "/app/backend/tests/test_audit_readonly_integrity.py",
+    "/app/backend/tests/test_timeout_fix_readonly.py",
+    "/app/backend/tests/test_tenant_isolation_readonly.py",
+    "/app/test_reports/pytest/pytest_results_iteration_4.xml"
+  ],
+  "action_items": [
+    "No code fix required from this audit pass; preserve read-only Azarine owner-session fixture behavior and current export contract shape."
+  ],
+  "critical_code_review_comments": [
+    "No critical implementation issues found in audited ACS core paths for this scope.",
+    "Tenant isolation is correct: demo user receives 404 for Azarine project while existing owner session fixture can read it.",
+    "Export contract now correctly includes root-level productIntelligence and provenance while preserving nested canonical data."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_tenant_isolation_readonly.py",
+    "/app/test_reports/iteration_4.json"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "None (strict read-only validation)",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Important execution detail: pytest read-only suites skip if REACT_APP_BACKEND_URL is not exported into shell. Use `set -a && source /app/frontend/.env && set +a` before running these suites. Forbidden POST /api/projects and POST /api/generation-jobs were not triggered in this run.",
+  "rca of the issue": "Iteration_3 findings were not product defects: Azarine 404 under demo credentials is expected tenant isolation. Correct read-only validation requires owner-session fixture from persisted state for Azarine checks. Current iteration confirms this path and confirms export root schema remediation is effective."
+}

@@ -6,7 +6,50 @@ const LANGUAGES = ["en", "id"];
 const PLATFORMS = ["TikTok", "Instagram Reels", "YouTube Shorts"];
 
 function clean(value) { return String(value ?? "").trim(); }
+function phrase(value) { return clean(value).replace(/[\s.!?,;:]+$/g,""); }
 function safeTag(value) { return clean(value).toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 28); }
+function values(value) { return Array.isArray(value) ? value.map(clean).filter(Boolean) : clean(value) ? [clean(value)] : []; }
+function unique(items) { return [...new Set(items.map(clean).filter(Boolean))]; }
+function promptField(text,label) {
+  const escaped=label.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+  return clean(text.match(new RegExp(`${escaped}\\s*:\\s*(?:\\n\\s*)?([^\\n]+)`,"i"))?.[1]);
+}
+function promptSection(text,label) {
+  const lines=String(text||"").replace(/\r/g,"").split("\n"),start=lines.findIndex(line=>line.trim().toUpperCase().replace(/:$/,'')===label.toUpperCase());
+  if(start<0)return [];
+  const collected=[];
+  for(let index=start+1;index<lines.length;index+=1){
+    const line=lines[index].trim();
+    if(line&&(/^[A-Z][A-Z0-9 /&()_—-]{2,}:?$/.test(line)||/^SCENE \d+/i.test(line)))break;
+    if(line&&!/^Example:?$/i.test(line))collected.push(line.replace(/^[-*]\s*/,""));
+  }
+  return collected.filter(Boolean);
+}
+function dialogues(text) { return [...String(text||"").matchAll(/Dialogue:\s*\n\s*["“]([^"”]+)["”]/gi)].map(match=>clean(match[1])); }
+
+export function deriveProductIntelligence(source) {
+  const explicit=source?.productIntelligence||{},instruction=clean(source?.creativeInstruction),description=clean(source?.productDescription),spoken=dialogues(instruction);
+  const descriptionIngredients=description.match(/(?:mengandung|contains)(?: beberapa bahan utama)?(?: seperti)?\s+([^\.]+)/i)?.[1]?.split(/,|\s+dan\s+|\s+and\s+/i)||[];
+  const keyIngredients=promptSection(instruction,"KEY INGREDIENTS SHOWN ON PACKAGING");
+  const name=clean(explicit.canonicalProductName||source?.canonicalProductName||promptField(instruction,"Name")||source?.productName);
+  const buyerMatch=(spoken.at(-1)||instruction).match(/(?:lagi mencari|lagi cari|looking for)\s+([^,."”]+)/i)?.[1];
+  return {
+    canonicalProductName:name,
+    category:clean(explicit.category||source?.productCategory||promptField(instruction,"Category")),
+    verifiedAttributes:unique([...values(explicit.verifiedAttributes||source?.productAttributes),...promptSection(instruction,"VISIBLE PRODUCT CLAIMS")]),
+    ingredients:unique([...values(explicit.ingredients||source?.ingredients),...keyIngredients,...descriptionIngredients]).slice(0,12),
+    visibleClaims:unique([...values(explicit.visibleClaims||source?.visibleClaims),...promptSection(instruction,"VISIBLE PRODUCT CLAIMS")]),
+    packagingInformation:unique([...values(explicit.packagingInformation||source?.packagingInformation),...promptSection(instruction,"PACKAGING INFORMATION")]),
+    creatorPersona:clean(explicit.creatorPersona||source?.creatorPersona||promptSection(instruction,"CREATOR PERSONA").join(" ")),
+    tone:unique([...values(explicit.tone||source?.tone),...promptSection(instruction,"TONE")]).map(phrase).filter(Boolean).slice(0,8),
+    contentAngle:clean(explicit.contentAngle||source?.contentAngle||promptSection(instruction,"VIDEO TYPE")[0]),
+    hook:clean(explicit.hook||source?.hook||spoken[0]),
+    buyerIntent:clean(explicit.buyerIntent||source?.buyerIntent||buyerMatch),
+    ctaIntent:clean(explicit.ctaIntent||source?.ctaIntent||spoken.at(-1)),
+    negativeConstraints:unique([...values(explicit.negativeConstraints||source?.negativeConstraints),...promptSection(instruction,"NEGATIVE CONSTRAINTS"),...promptSection(instruction,"DO NOT")]).filter(value=>!/^do not:?$/i.test(value)),
+    sourceDescription:description
+  };
+}
 
 export function validateProjectInput(input) {
   const required = ["projectName", "productName", "productDescription", "contentType", "language"];
@@ -24,7 +67,7 @@ export function createProject(input) {
   if (!check.ok) throw new Error(JSON.stringify(check));
   const now = new Date().toISOString();
   const target = Number(input.targetDurationSeconds);
-  return {
+  const project={
     id: crypto.randomUUID(),
     projectName: clean(input.projectName),
     productName: clean(input.productName),
@@ -43,10 +86,13 @@ export function createProject(input) {
     updatedAt: now,
     status: "draft"
   };
+  project.productIntelligence=deriveProductIntelligence({...input,...project});
+  return project;
 }
 
 export function deriveCreative(project) {
   const isId = project.language === "id";
+  const intelligence=project.productIntelligence||deriveProductIntelligence(project);
   const category = {
     UGC: isId ? "momen kreator yang autentik" : "an authentic creator moment",
     Unboxing: isId ? "pengungkapan produk dan detail yang terlihat" : "a reveal of the product and its visible details",
@@ -54,12 +100,14 @@ export function deriveCreative(project) {
   }[project.contentType];
   return {
     objective: isId ? `Membuat konten afiliasi ${project.contentType} untuk ${project.platform}.` : `Create ${project.contentType} affiliate content for ${project.platform}.`,
-    targetAudience: isId ? "Audiens yang kebutuhannya sesuai konteks produk." : "An audience whose needs fit the supplied product context.",
-    angle: category,
-    hook: isId ? `Mulai dengan ${category}.` : `Open with ${category}.`,
+    targetAudience: intelligence.buyerIntent || (isId ? "Audiens yang kebutuhannya sesuai konteks produk." : "An audience whose needs fit the supplied product context."),
+    angle: intelligence.contentAngle || category,
+    hook: intelligence.hook || (isId ? `Mulai dengan ${category}.` : `Open with ${category}.`),
     strategy: isId ? "Gunakan hanya informasi dan referensi produk yang diberikan." : "Use only supplied product information and references.",
     contentPillar: isId ? "Penemuan produk afiliasi" : "Affiliate product discovery",
-    ctaStrategy: isId ? "Ajak audiens memeriksa detail produk secara alami." : "Invite the audience to explore the product details naturally.",
+    ctaStrategy: intelligence.ctaIntent || (isId ? "Ajak audiens memeriksa detail produk secara alami." : "Invite the audience to explore the product details naturally."),
+    creatorPersona:intelligence.creatorPersona,
+    tone:intelligence.tone,
     internalControlApplied: Boolean(project.creativeInstruction),
     language: isId ? "Bahasa Indonesia" : "English"
   };
@@ -70,9 +118,12 @@ export function buildStoryboard(project, creative) {
   const timing = total ? [Math.round(total * .3 * 10)/10, Math.round(total * .4 * 10)/10] : [null,null];
   timing.push(total ? Math.round((total - timing[0] - timing[1]) * 10)/10 : null);
   const isId = project.language === "id";
-  const intents = isId
-    ? ["Perkenalkan produk dan konteksnya.", "Tampilkan interaksi dan detail produk yang relevan.", "Tutup dengan CTA afiliasi yang kontekstual."]
-    : ["Introduce the product and its context.", "Show product interaction and relevant visual details.", "Close with a contextual affiliate CTA."];
+  const intelligence=project.productIntelligence||deriveProductIntelligence(project),detail=intelligence.ingredients.slice(0,2).join(isId?" dan ":" and ")||intelligence.verifiedAttributes[0];
+  const intents = [
+    creative.hook || (isId?"Perkenalkan produk dan konteksnya.":"Introduce the product and its context."),
+    detail ? (isId?`Tunjukkan detail produk yang relevan: ${detail}.`:`Show the relevant product detail: ${detail}.`) : (isId?"Tampilkan interaksi dan detail produk yang relevan.":"Show product interaction and relevant visual details."),
+    creative.ctaStrategy || (isId?"Tutup dengan CTA afiliasi yang kontekstual.":"Close with a contextual affiliate CTA.")
+  ];
   const visuals = isId
     ? ["Pembukaan produk memakai referensi yang diberikan.", "Interaksi produk memakai detail yang dapat diamati.", "Bidikan penutup alami dengan CTA kontekstual."]
     : ["Product opening using supplied references.", "Product interaction using observable details.", "Natural closing shot with contextual CTA."];
@@ -179,16 +230,30 @@ export async function generateVideoResult(project, storyboard, creative, env = p
   }
 }
 
-export function buildAffiliatePackage(project, creative) {
+export function buildAffiliatePackage(project, creative, storyboard) {
   const isId = project.language === "id";
   const platform = project.platform || "social video";
+  const intelligence=project.productIntelligence||deriveProductIntelligence(project),identity=intelligence.canonicalProductName||project.productName;
+  const ingredients=intelligence.ingredients.slice(0,2).join(isId?" dan ":" and "),claim=intelligence.visibleClaims[0]||intelligence.verifiedAttributes[0];
+  const firstDescription=project.productDescription.split(/\n|(?<=[.!?])\s/)[0].slice(0,220),detail=ingredients||claim||firstDescription;
+  const hook=intelligence.hook&&intelligence.hook.length<180?intelligence.hook:(isId?`Kenalan dengan ${identity}.`:`Meet ${identity}.`);
+  const tone=intelligence.tone.slice(0,2).map(phrase).join(isId?" dan ":" and "),rawAngle=phrase(intelligence.contentAngle||creative?.angle),angle=rawAngle.replace(new RegExp(`^${project.contentType}\\s*[/—:-]?\\s*`,"i"),"");
+  const sceneContext=phrase(storyboard?.scenes?.[1]?.intent);
   const caption = isId
-    ? `${project.productName} hadir dalam format ${project.contentType} untuk ${platform}. Dibuat berdasarkan informasi produk yang diberikan agar kamu bisa melihat konteksnya dengan jelas.`
-    : `Meet ${project.productName} through a ${project.contentType} story made for ${platform}. Built from the supplied product details so you can explore it in context.`;
-  const cta = isId ? "Lihat detail produknya dan tentukan apakah sesuai dengan kebutuhanmu." : "Explore the product details and decide whether it fits your needs.";
+    ? `${hook} ${identity} menonjolkan ${detail}. ${tone?`Dibawakan dengan nuansa ${tone.toLowerCase()} melalui`:`Dikemas melalui`} ${project.contentType}${angle?` dengan pendekatan ${angle.toLowerCase()}`:""} untuk ${platform}${sceneContext?` dengan fokus ${sceneContext.toLowerCase()}`:""}.`
+    : `${hook} ${identity} highlights ${detail}. ${tone?`Presented with a ${tone.toLowerCase()} tone through`:`Presented through`} ${project.contentType}${angle?` with a ${angle.toLowerCase()} approach`:""} for ${platform}${sceneContext?` with a focus on ${sceneContext.toLowerCase()}`:""}.`;
+  const cta = intelligence.ctaIntent || (intelligence.buyerIntent
+    ? (isId?`Kalau kamu sedang mencari ${intelligence.buyerIntent}, cek detail ${identity} dan lihat apakah sesuai dengan rutinitasmu.`:`If you are looking for ${intelligence.buyerIntent}, explore ${identity} and see whether it fits your routine.`)
+    : (isId ? `Lihat detail ${identity} dan tentukan apakah sesuai dengan kebutuhanmu.` : `Explore ${identity} and decide whether it fits your needs.`));
   const categoryTag = safeTag(project.contentType);
-  const productTag = safeTag(project.productName);
-  return {productName:project.productName,productDescription:project.productDescription,caption,cta,hashtags:["#affiliate","#productdiscovery",`#${categoryTag}`,...(productTag ? [`#${productTag}`] : [])]};
+  const productTag = safeTag(identity),contextTag=safeTag(intelligence.category||intelligence.ingredients[0]);
+  return {productName:identity,productDescription:project.productDescription,caption,cta,hashtags:["#affiliate","#productdiscovery",`#${categoryTag}`,...(contextTag?[`#${contextTag}`]:[]),...(productTag ? [`#${productTag}`] : [])]};
+}
+
+export function upgradePersistedResult(result) {
+  if(!result?.project||result.semanticSchemaVersion===4)return result;
+  const project={...result.project,productIntelligence:deriveProductIntelligence(result.project)};
+  return {...result,semanticSchemaVersion:4,project,affiliatePackage:buildAffiliatePackage(project,result.creative||deriveCreative(project),result.storyboard)};
 }
 
 export async function executeGoldenPath(input, env = process.env) {
@@ -196,11 +261,11 @@ export async function executeGoldenPath(input, env = process.env) {
   const creative = deriveCreative(project);
   const storyboard = buildStoryboard(project,creative);
   const video = await generateVideoResult(project,storyboard,creative,env);
-  const affiliatePackage = buildAffiliatePackage(project,creative);
+  const affiliatePackage = buildAffiliatePackage(project,creative,storyboard);
   const isVerifiedLive = video.generationMode === "live" && video.validation?.status === "passed" && video.provenance?.liveEvidence === true;
   return {
     project:{...project,status:isVerifiedLive ? "generated" : "fallback",updatedAt:new Date().toISOString()},
-    creative, storyboard, video, affiliatePackage,
+    semanticSchemaVersion:4,creative, storyboard, video, affiliatePackage,
     execution:{completedAt:new Date().toISOString(),restored:false,regenerationCount:1}
   };
 }

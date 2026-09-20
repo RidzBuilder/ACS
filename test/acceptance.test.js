@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
-import {executeGoldenPath,resolveVideoCapability} from "../src/domain.js";
+import {executeGoldenPath,resolveVideoCapability,createProject,deriveCreative,buildStoryboard,buildAffiliatePackage,upgradePersistedResult} from "../src/domain.js";
 
 const input={projectName:"Demo ACS",productName:"Sample Bottle",productDescription:"A bottle supplied as the reference product.",productImages:["reference://image-1"],creativeInstruction:"Demonstrate the product naturally.",contentType:"UGC",platform:"TikTok",targetDurationSeconds:15,language:"id"};
 
@@ -82,4 +82,38 @@ test("resolver remains provider-neutral",()=>{
   assert.equal(live.adapterContract,"acs-video-adapter-v1");
   assert.equal(live.profile.asyncJobs,true);
   assert.equal("provider" in live,false);
+});
+
+test("rich product intelligence propagates into creative, storyboard, caption, and CTA",()=>{
+  const project=createProject({
+    projectName:"Azarine semantic audit",productName:"serum retinol",
+    productDescription:"Azarine Revitalizing Anti Aging Serum — Marvel Doctor Strange Edition adalah serum wajah dengan Bakuchiol dan Peptide untuk pengguna yang mencari perawatan anti-aging.",
+    creativeInstruction:'Name:\nAzarine Revitalizing Anti Aging Serum — Marvel Doctor Strange Edition\n\nCategory:\nFacial serum / anti-aging skincare\n\nKEY INGREDIENTS SHOWN ON PACKAGING:\n- Bakuchiol\n- Peptide\n\nCREATOR PERSONA\nRelatable everyday skincare user.\n\nTONE\nNatural.\nWarm.\n\nVIDEO TYPE\nUGC / authentic creator-style product review.\n\nDialogue:\n"Guys, aku baru nemu serum yang konsepnya menarik banget."\n\nDialogue:\n"Kalau kamu lagi cari serum buat perawatan anti-aging, boleh cek yang ini."',
+    contentType:"UGC",platform:"TikTok",targetDurationSeconds:10,language:"id"
+  });
+  const creative=deriveCreative(project),storyboard=buildStoryboard(project,creative),pkg=buildAffiliatePackage(project,creative,storyboard);
+  assert.equal(project.productIntelligence.ingredients.includes("Bakuchiol"),true);
+  assert.equal(project.productIntelligence.ingredients.includes("Peptide"),true);
+  assert.match(creative.hook,/baru nemu serum/i);
+  assert.match(storyboard.scenes[1].intent,/Bakuchiol/i);
+  assert.match(pkg.caption,/Bakuchiol/i);
+  assert.match(pkg.caption,/Peptide/i);
+  assert.match(pkg.caption,/TikTok/i);
+  assert.match(pkg.cta,/anti-aging/i);
+  assert.equal(pkg.caption.includes(project.creativeInstruction),false);
+  const other=createProject({...input,productName:"Atlas Travel Bottle",productDescription:"A reusable travel bottle with a locking lid and slim profile.",creativeInstruction:"",language:"en"});
+  const otherCreative=deriveCreative(other),otherPackage=buildAffiliatePackage(other,otherCreative,buildStoryboard(other,otherCreative));
+  assert.notEqual(pkg.caption,otherPackage.caption);
+  assert.notEqual(pkg.cta,otherPackage.cta);
+});
+
+test("semantic migration preserves video provenance and regeneration metadata",()=>{
+  const legacy={project:createProject(input),creative:{angle:"legacy"},storyboard:{id:"storyboard-1",scenes:[]},video:{requestId:"request-1",providerJobId:"job-1",artifact:"https://example.invalid/video.webm"},affiliatePackage:{caption:"generic"},execution:{regenerationCount:1}};
+  delete legacy.project.productIntelligence;
+  const upgraded=upgradePersistedResult(legacy);
+  assert.equal(upgraded.semanticSchemaVersion,4);
+  assert.deepEqual(upgraded.video,legacy.video);
+  assert.deepEqual(upgraded.storyboard,legacy.storyboard);
+  assert.equal(upgraded.execution.regenerationCount,1);
+  assert.notEqual(upgraded.affiliatePackage.caption,"generic");
 });

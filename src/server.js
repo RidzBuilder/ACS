@@ -3,8 +3,8 @@ import crypto from "node:crypto";
 import {createReadStream} from "node:fs";
 import {readFile,writeFile,mkdir,stat} from "node:fs/promises";
 import {fileURLToPath} from "node:url";
-import {extname,join,normalize} from "node:path";
-import {executeGoldenPath,resolveVideoCapability} from "./domain.js";
+import {basename,extname,join,normalize} from "node:path";
+import {executeGoldenPath,resolveVideoCapability,upgradePersistedResult} from "./domain.js";
 
 const port = Number(process.env.PORT);
 if (!port) throw new Error("PORT is required");
@@ -23,6 +23,12 @@ async function loadState(){
   } catch { return {users:{},sessions:{},projects:{},jobs:{}}; }
 }
 async function saveState(state){await mkdir(new URL("../.data",import.meta.url),{recursive:true});await writeFile(dataFile,JSON.stringify(state,null,2));}
+async function migratePersistedSemantics(){
+  const state=await loadState();let changed=false;
+  for(const [id,result] of Object.entries(state.projects)){const upgraded=upgradePersistedResult(result);if(upgraded!==result){state.projects[id]=upgraded;changed=true;}}
+  for(const job of Object.values(state.jobs)){if(job.result){const upgraded=upgradePersistedResult(job.result);if(upgraded!==job.result){job.result=upgraded;changed=true;}}}
+  if(changed)await saveState(state);
+}
 function json(res,status,body){res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store"});res.end(JSON.stringify(body));}
 function readBody(req){return new Promise((resolve,reject)=>{let raw="";req.on("data",chunk=>{raw+=chunk;if(raw.length>12_000_000)reject(new Error("Payload too large"));});req.on("end",()=>{try{resolve(raw?JSON.parse(raw):{});}catch{reject(new Error("Invalid JSON"));}});req.on("error",reject);});}
 function hashPassword(password,salt=crypto.randomBytes(16).toString("hex")){return {salt,hash:crypto.pbkdf2Sync(password,salt,120000,32,"sha256").toString("hex")};}
@@ -36,19 +42,21 @@ async function serveStatic(req,path,res){
   const safe=normalize(requested).replace(/^(\.\.(\/|\\|$))+/,"");
   const target=join(publicDir,safe);
   try {
-    const details=await stat(target),contentType=mime[extname(target)]||"application/octet-stream",range=req.headers.range;
-    if(req.method==="HEAD"){res.writeHead(200,{"content-type":contentType,"content-length":details.size,"accept-ranges":"bytes"});return res.end();}
+    const details=await stat(target),contentType=mime[extname(target)]||"application/octet-stream",range=req.headers.range,url=new URL(req.url,"http://acs.local");
+    const requestedName=cleanFilename(url.searchParams.get("filename")||basename(target)),disposition=url.searchParams.get("download")==="1"?{"content-disposition":`attachment; filename="${requestedName}"`}:{};
+    if(req.method==="HEAD"){res.writeHead(200,{"content-type":contentType,"content-length":details.size,"accept-ranges":"bytes",...disposition});return res.end();}
     if(range){
       const match=range.match(/bytes=(\d*)-(\d*)/),start=match?.[1]?Number(match[1]):0,end=match?.[2]?Math.min(Number(match[2]),details.size-1):details.size-1;
       if(!match||start>end||start>=details.size){res.writeHead(416,{"content-range":`bytes */${details.size}`});return res.end();}
-      res.writeHead(206,{"content-type":contentType,"content-length":end-start+1,"content-range":`bytes ${start}-${end}/${details.size}`,"accept-ranges":"bytes"});
+      res.writeHead(206,{"content-type":contentType,"content-length":end-start+1,"content-range":`bytes ${start}-${end}/${details.size}`,"accept-ranges":"bytes",...disposition});
       return createReadStream(target,{start,end}).pipe(res);
     }
-    res.writeHead(200,{"content-type":contentType,"content-length":details.size,"accept-ranges":"bytes"});
+    res.writeHead(200,{"content-type":contentType,"content-length":details.size,"accept-ranges":"bytes",...disposition});
     return createReadStream(target).pipe(res);
   } catch {}
   try {const body=await readFile(join(publicDir,"index.html"));res.writeHead(200,{"content-type":mime[".html"]});return res.end(body);} catch {return json(res,404,{error:"not found"});}
 }
+function cleanFilename(value){return String(value||"artifact").replace(/[^a-zA-Z0-9._-]+/g,"-").slice(0,120)||"artifact";}
 
 const server=http.createServer(async(req,res)=>{try{
   const url=new URL(req.url,"http://acs.local"), path=url.pathname;
@@ -110,6 +118,12 @@ const server=http.createServer(async(req,res)=>{try{
     const projects=Object.values(state.projects).filter(item=>item.ownerId===user.id).sort((a,b)=>b.project.createdAt.localeCompare(a.project.createdAt));
     return json(res,200,{projects});
   }
+  const exportMatch=path.match(/^\/api\/projects\/([^/]+)\/export$/);
+  if(req.method==="GET"&&exportMatch){
+    const id=exportMatch[1],result=state.projects[id];if(!result||result.ownerId!==user.id)return json(res,404,{error:"Project not found."});
+    const job=Object.values(state.jobs).find(item=>item.projectId===id),generationJob=job?{id:job.id,status:job.status,createdAt:job.createdAt,updatedAt:job.updatedAt,projectId:job.projectId}:null;
+    return json(res,200,{...result,productIntelligence:result.project.productIntelligence,provenance:result.video.provenance,exportMetadata:{contract:"acs-project-export-v1",exportedAt:new Date().toISOString(),source:"canonical-project-store",persistence:{storedProjectId:id,ownerId:result.ownerId,storedAt:result.project.updatedAt,generationJob}}});
+  }
   const id=routeId(path);
   if(req.method==="GET"&&id){
     const result=state.projects[id];if(!result||result.ownerId!==user.id)return json(res,404,{error:"Project not found."});
@@ -123,4 +137,5 @@ const server=http.createServer(async(req,res)=>{try{
   return json(res,404,{error:"not found"});
 }catch(error){return json(res,400,{error:error.message});}});
 
+await migratePersistedSemantics();
 server.listen(port,"0.0.0.0",()=>console.log(`ACS V3 runtime listening on :${port}`));

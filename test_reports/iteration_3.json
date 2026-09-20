@@ -1,0 +1,67 @@
+{
+  "summary": "Executed strict read-only ACS audit regression (backend + UI) for AUDIT-01/02/03 without calling POST /api/projects or POST /api/generation-jobs. Video artifact durability/download path passed for project d8c5c6a5-06ba-48e8-a496-9f4499efe231, but Azarine API accessibility and export root-schema completeness failed.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "/api/projects/ccfcf412-b054-47f0-a43d-c71733e352d7",
+        "issue": "Returns 404 'Project not found.' for provided credential set (acs.demo@local.test), blocking live API validation of AUDIT-02/AUDIT-03 Azarine project requirements.",
+        "priority": "CRITICAL"
+      },
+      {
+        "endpoint": "/api/projects/{id}/export",
+        "issue": "Export payload is missing required root sections productIntelligence and provenance (observed in UI download and persisted audit export file).",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Download project JSON via download-project-button",
+        "issue": "Downloaded JSON schema lacks expected root keys productIntelligence and provenance; only nested project.productIntelligence and video.provenance exist.",
+        "affected_selectors": [
+          "[data-testid='download-project-button']"
+        ]
+      },
+      {
+        "flow": "Azarine project audit via provided account",
+        "issue": "Azarine project is not available in authenticated history/API for provided credentials, so UI cannot restore or audit it.",
+        "affected_selectors": [
+          "[data-testid='nav-item-history']"
+        ]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_timeout_fix_readonly.py",
+    "/app/backend/tests/test_audit_readonly_integrity.py",
+    "/app/test_reports/pytest/pytest_results_iteration_3.xml",
+    "/app/test/acceptance.test.js"
+  ],
+  "action_items": [
+    "Fix ownership/seed mapping so provided audit credentials can access project ccfcf412-b054-47f0-a43d-c71733e352d7 via /api/projects/{id} and /api/projects/{id}/export.",
+    "Update canonical export contract to include root-level productIntelligence and provenance sections exactly as audit contract expects.",
+    "Re-run read-only audits after fixes: Azarine semantic-state API checks, large export endpoint checks, and UI export schema checks."
+  ],
+  "critical_code_review_comments": [
+    "Locked ACS core contract remains intact: /app/src/video-adapter.js still uses real_ai_video_generation and acs-video-adapter-v1.",
+    "No provider addition detected in provider-neutral ACS Core files under /app/src/.",
+    "AUDIT-01 static artifact path is correctly durable and byte-range capable with downloadable attachment semantics when download=1 is used."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_audit_readonly_integrity.py",
+    "/app/test_reports/iteration_3.json"
+  ],
+  "success_rate": {
+    "backend": "78%",
+    "frontend": "85%"
+  },
+  "seed_data_creation": "None (read-only only)",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Confirmed no forbidden billable calls were made in this run. AUDIT-01 for project d8c5c6a5 passed including browser download completion, usable filename, exact byte/hash match with stored artifact, WebM magic, content-type video/webm, content-disposition attachment (with download=1), and byte ranges. Azarine checks are blocked by 404 under provided credentials; local file /app/.data/audit-azarine-export.json is ~3.8MB with 4 images and 5331-char creativeInstruction, but root export keys still omit productIntelligence/provenance.",
+  "rca of the issue": "RCA-1 (Azarine 404): project ccfcf412-b054-47f0-a43d-c71733e352d7 exists in persisted state but is owned by a different userId than the provided demo credential account. Repro: login as acs.demo@local.test -> GET /api/projects/{ccfc...} => 404. Mitigation: align seed ownership or credential mapping. RCA-2 (Export schema gap): canonical export endpoint returns {...result, exportMetadata} where result lacks root-level productIntelligence/provenance; these are nested only. Repro: UI download-project-button and GET /api/projects/{id}/export outputs. Mitigation: include explicit root sections per export contract requirement."
+}

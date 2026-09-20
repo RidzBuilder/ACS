@@ -63,7 +63,14 @@ async function pollGeneration(id){
 async function restoreProject(id){try{state.currentResult=await api(`/api/projects/${id}`);state.route="create";location.hash="#/create";render();setTimeout(()=>document.querySelector("#generation-result")?.scrollIntoView({behavior:"smooth"}),50);toast("Stored project restored without regeneration.");}catch(error){toast(error.message,"error");}}
 async function deleteProject(id){if(!confirm("Delete this archived project?"))return;try{await api(`/api/projects/${id}`,{method:"DELETE"});state.projects=state.projects.filter(item=>item.project.id!==id);render();toast("Project deleted.");}catch(error){toast(error.message,"error");}}
 async function copyPackage(){const pkg=state.currentResult?.affiliatePackage;if(!pkg)return;const text=`${pkg.productName}\n\n${pkg.productDescription}\n\n${pkg.caption}\n\n${pkg.cta}\n\n${pkg.hashtags.join(" ")}`;await navigator.clipboard.writeText(text);toast("Affiliate package copied.");}
-function downloadProject(){if(!state.currentResult)return;const blob=new Blob([JSON.stringify(state.currentResult,null,2)],{type:"application/json"}),link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download=`${state.currentResult.project.projectName.replace(/[^a-z0-9]+/gi,"-").toLowerCase()}.json`;link.click();URL.revokeObjectURL(link.href);}
+async function downloadProject(){
+  if(!state.currentResult)return;
+  try{
+    const exported=await api(`/api/projects/${state.currentResult.project.id}/export`),blob=new Blob([JSON.stringify(exported,null,2)],{type:"application/json"}),link=document.createElement("a"),objectUrl=URL.createObjectURL(blob);
+    link.href=objectUrl;link.download=`${state.currentResult.project.projectName.replace(/[^a-z0-9]+/gi,"-").toLowerCase()}.json`;document.body.append(link);link.click();
+    setTimeout(()=>{link.remove();URL.revokeObjectURL(objectUrl);},1000);
+  }catch(error){toast(error.message,"error");}
+}
 async function saveSettings(event){event.preventDefault();try{const language=new FormData(event.target).get("language");state.user=(await api("/api/settings",{method:"PATCH",body:JSON.stringify({language})})).user;render();toast("Preferences saved.");}catch(error){toast(error.message,"error");}}
 window.addEventListener("hashchange",()=>{if(!state.user)return;state.route=routeFromHash();state.mobileOpen=false;if(state.route!=="create")state.currentResult=null;render();});
 bootstrap();
