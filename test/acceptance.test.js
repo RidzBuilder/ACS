@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 import {executeGoldenPath,resolveVideoCapability} from "../src/domain.js";
+import {executeHiggsfieldGenjutsuAdapter,HIGGSFIELD_GENJUTSU_MODEL} from "../src/higgsfield-adapter.js";
 
 const input={
   projectName:"Demo ACS",
@@ -72,4 +73,14 @@ test("resolver",()=>{
   assert.equal(resolveVideoCapability({}).mode,"fallback");
   assert.equal(resolveVideoCapability({ACS_VIDEO_GENERATOR_URL:"x"}).mode,"live");
   assert.equal(resolveVideoCapability({ACS_VIDEO_GENERATOR_URL:"x"}).adapterContract,"acs-video-adapter-v1");
+});
+
+
+test("Higgsfield Genjutsu bridge fails closed without credentials",async()=>{
+  await assert.rejects(()=>executeHiggsfieldGenjutsuAdapter({requestId:"acs-test",project:{productName:"P",productImages:["https://example.com/p.jpg"]},storyboard:{}},{}),/credentials are not configured/);
+});
+
+test("Higgsfield Genjutsu bridge requires reference media before provider submission",async()=>{
+  await assert.rejects(()=>executeHiggsfieldGenjutsuAdapter({requestId:"acs-test",project:{productName:"P",productImages:["https://example.com/p.jpg"]},storyboard:{}},{HF_API_KEY_ID:"id",HF_API_KEY_SECRET:"secret"}),/referenceVideoUrl/);
+  assert.equal(HIGGSFIELD_GENJUTSU_MODEL,"higgsfiled/genjutsu/motion-transfer/v1.0");
 });
