@@ -10,17 +10,14 @@ export function validateProjectInput(input) {
   if (!["en", "id"].includes(input.language)) return { ok: false, error: "Unsupported language" };
   return { ok: true };
 }
-
 export function createProject(input) {
   const check = validateProjectInput(input);
   if (!check.ok) throw new Error(JSON.stringify(check));
   const now = new Date().toISOString();
-  return {
-    id: crypto.randomUUID(), projectName: input.projectName.trim(), productName: input.productName.trim(),
+  return { id: crypto.randomUUID(), projectName: input.projectName.trim(), productName: input.productName.trim(),
     productDescription: input.productDescription.trim(), productImages: Array.isArray(input.productImages) ? input.productImages : [],
     creativeInstruction: String(input.creativeInstruction ?? "").trim(), contentType: input.contentType, language: input.language,
-    createdAt: now, updatedAt: now, status: "draft"
-  };
+    createdAt: now, updatedAt: now, status: "draft" };
 }
 export function deriveCreative(project) {
   const objective = project.contentType === "UGC" ? "Create authentic creator-style affiliate content."
@@ -36,19 +33,24 @@ export function buildStoryboard(project, creative) {
 }
 export function resolveVideoCapability(env = process.env) {
   if (!env.ACS_VIDEO_GENERATOR_URL) return {capability:VIDEO_CAPABILITY,mode:"fallback",reason:"No usable live video generator configured."};
-  return {capability:VIDEO_CAPABILITY,mode:"live",endpoint:env.ACS_VIDEO_GENERATOR_URL};
+  return {capability:VIDEO_CAPABILITY,mode:"live",endpoint:env.ACS_VIDEO_GENERATOR_URL,adapter:"heygen"};
 }
 export async function generateVideoResult(project, storyboard, env = process.env) {
   const resolution=resolveVideoCapability(env);
   if (resolution.mode==="fallback") return {status:"fallback",generationMode:"fallback",artifact:null,validationStatus:"not_live",capability:VIDEO_CAPABILITY,reason:resolution.reason,storyboardSceneCount:storyboard.scenes.length};
+  const provenanceBase={capability:VIDEO_CAPABILITY,adapter:resolution.adapter,executionOrigin:"acs-runtime",requestedAt:new Date().toISOString()};
   try {
-    const response=await fetch(resolution.endpoint,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({capability:VIDEO_CAPABILITY,project,storyboard})});
-    if (!response.ok) return {status:"adapter_error",generationMode:"live",artifact:null,validationStatus:"failed",capability:VIDEO_CAPABILITY,error:"Video adapter returned HTTP "+response.status};
+    const response=await fetch(resolution.endpoint,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({capability:VIDEO_CAPABILITY,project,storyboard,provenance:provenanceBase})});
+    if (!response.ok) return {status:"adapter_error",generationMode:"live",artifact:null,validationStatus:"failed",capability:VIDEO_CAPABILITY,provenance:provenanceBase,error:"Video adapter returned HTTP "+response.status};
     const payload=await response.json();
-    if (!payload?.artifact || !payload?.playable) return {status:"invalid_live_artifact",generationMode:"live",artifact:payload?.artifact??null,validationStatus:"failed",capability:VIDEO_CAPABILITY,error:"Adapter did not return a playable artifact"};
-    return {status:"ready",generationMode:"live",artifact:payload.artifact,playable:payload.playable,validationStatus:"passed",capability:VIDEO_CAPABILITY,storyboardSceneCount:storyboard.scenes.length};
+    const provenance={...provenanceBase,...(payload?.provenance||{})};
+    if (!payload?.artifact || !payload?.playable) return {status:"invalid_live_artifact",generationMode:"live",artifact:payload?.artifact??null,playable:false,validationStatus:"failed",capability:VIDEO_CAPABILITY,provenance,error:"Adapter did not return a playable artifact"};
+    if (provenance.executionOrigin!=="acs-runtime" || provenance.adapter!=="heygen" || !provenance.providerVideoId) {
+      return {status:"incomplete_provenance",generationMode:"live",artifact:payload.artifact,playable:true,validationStatus:"failed",capability:VIDEO_CAPABILITY,provenance,error:"Adapter returned a playable artifact without complete ACS→HeyGen provenance"};
+    }
+    return {status:"ready",generationMode:"live",artifact:payload.artifact,playable:true,validationStatus:"passed",capability:VIDEO_CAPABILITY,provenance,storyboardSceneCount:storyboard.scenes.length};
   } catch (error) {
-    return {status:"adapter_unreachable",generationMode:"live",artifact:null,validationStatus:"failed",capability:VIDEO_CAPABILITY,error:error.message};
+    return {status:"adapter_unreachable",generationMode:"live",artifact:null,validationStatus:"failed",capability:VIDEO_CAPABILITY,provenance:provenanceBase,error:error.message};
   }
 }
 export function buildAffiliatePackage(project,creative){
