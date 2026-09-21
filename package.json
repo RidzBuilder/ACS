@@ -1,0 +1,12 @@
+{
+  "name": "affiliate-ai-content-studio-v3",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Minimal execution reference runtime for the ACS V3 blueprint.",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test",
+    "check": "node --check src/domain.js && node --check src/server.js && node --check src/video-adapter.js"
+  }
+}
